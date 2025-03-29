@@ -7,7 +7,18 @@
 ![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/Mahdiglm/AccountSelector/graphs/commit-activity)
 
-A secure command-line application for managing account credentials with user and admin functionality.
+Account Selector is a secure desktop application for managing and organizing account credentials with enhanced security features.
+
+## Version 1.1.0-beta
+
+This beta release includes significant security enhancements, backup functionality, and improved usability:
+
+- **Password Expiration**: Enforces password changes based on configurable policies
+- **Auto-logout**: Automatically logs out inactive users for improved security
+- **Backup & Restore**: Complete system for encrypted backups with scheduling
+- **Password History**: Prevents reuse of previous passwords
+- **User Sessions**: Enhanced session management with improved security
+- **Modern UI**: Updated user interface with better feedback and visualizations
 
 ```
  █████╗  ██████╗ ██████╗ ██████╗ ██╗   ██╗███╗   ██╗████████╗
@@ -37,9 +48,12 @@ A secure command-line application for managing account credentials with user and
 - **📤 Import/Export**: Import and export accounts in JSON, CSV, and text formats
 - **🎨 Theme Customization**: Choose from multiple visual themes for the interface
 - **📊 Statistics Dashboard**: View analytics on password strength, categories, and more
-- **🖥️ Appealing CLI Interface**: Modern, colorful, and user-friendly command-line interface
+- **🖥️ Appealing UI Interface**: Modern, colorful, and user-friendly interface
 - **🔒 Secure Storage**: Passwords are hashed before storage and account credentials are encrypted
 - **🔄 Auto-dependency Installation**: Automatically installs required dependencies on first run
+- **💾 Backup System**: Create, manage and restore from encrypted backups
+- **⏰ Password Expiration**: Enforce regular password changes
+- **👤 User Sessions**: Better session management with automatic logout
 
 ## 📋 Table of Contents
 
@@ -128,6 +142,9 @@ When first run, the application automatically creates an admin account:
 - **Password Strength Analysis**: Accounts are analyzed for password strength
 - **Password Suggestions**: Get suggestions to improve weak passwords
 - **Password Generator**: Generate secure passwords with customizable options
+- **Password Expiration**: Force regular password changes based on policy
+- **Password History**: Prevent reuse of previously used passwords
+- **Password Policy**: Configurable requirements for password complexity
 </details>
 
 <details>
@@ -136,6 +153,7 @@ When first run, the application automatically creates an admin account:
 - **Categories**: Organize accounts by predefined categories (Social, Financial, Email, etc.)
 - **Tags**: Add custom tags to accounts for better organization
 - **Favorites**: Mark accounts as favorites for quick access
+- **Custom Categories**: Create your own account categories
 </details>
 
 <details>
@@ -143,7 +161,10 @@ When first run, the application automatically creates an admin account:
 
 - **Import/Export**: Transfer account data between systems
 - **Supported Formats**: JSON, CSV, and plain text
-- **Automatic Backup**: Export feature can be used for regular backups
+- **Backup System**: Create encrypted backups of all application data
+- **Scheduled Backups**: Configure automatic backups on a schedule
+- **Backup Rotation**: Automatically manage backup retention
+- **Backup Encryption**: Secure backups with encryption
 </details>
 
 <details>
@@ -151,6 +172,7 @@ When first run, the application automatically creates an admin account:
 
 - **Themes**: Choose from multiple visual themes (Default, Dark, Light, Hacker, Ocean)
 - **Account Expiry**: Set expiration dates for accounts that need renewal
+- **User Settings**: Personalized settings for each user
 </details>
 
 ## 💾 Data Storage
@@ -162,12 +184,15 @@ Account data is stored in JSON files in the `app_data` directory:
 
 ## 🔒 Security Notes
 
-This application stores sensitive information. While passwords for user accounts are hashed, the stored account credentials are encrypted using the Fernet symmetric encryption scheme. For maximum security, consider:
+This application stores sensitive information. For maximum security:
 
 1. Restricting access to the computer running this application
 2. Using this application only on trusted devices
-3. Regularly backing up your credentials
-4. Protecting access to the key.bin file in the app_data directory
+3. Regularly backing up your credentials using the built-in backup system
+4. Protecting access to the key.bin file and backup files
+5. Following the password policy recommendations
+6. Changing passwords regularly (the application will enforce this)
+7. Logging out when not using the application (auto-logout will help with this)
 
 ## 🧪 Testing Auto-Install
 
