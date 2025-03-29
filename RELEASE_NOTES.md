@@ -1,11 +1,6 @@
-# Changelog
+# Release Notes
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [1.1.0-beta.1] - 2023-12-16
+## Version 1.1.0-beta.1 (2023-12-16)
 
 ### Fixed
 - Fixed Fernet encryption key generation and handling
@@ -16,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved key management with proper key derivation
 - Added backup of previous key files for recovery
 
-## [1.1.0-beta] - 2023-12-15
+## Version 1.1.0-beta (2023-12-15)
 
 ### Security
 - Improved key management for encryption
@@ -53,24 +48,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved UI feedback during operations
 - Enhanced password strength visualization with progress bar
 - Restructured codebase for better maintainability
-- Updated the User model with additional security fields
-
-## [1.0.0-beta] - 2023-06-10
-
-### Added
-- Initial beta release
-- User authentication with admin and regular user roles
-- Role-based access control
-- Account management (create, read, update, delete)
-- Password strength analysis
-- Secure password generation
-- Import/export functionality (JSON, CSV, and text formats)
-- Theme customization
-- Password encryption using Fernet symmetric encryption
-- Statistics dashboard
-- CLI interface with visual enhancements
-
-### Security
-- Passwords for user accounts are hashed with bcrypt
-- Account credentials are encrypted with Fernet symmetric encryption
-- Security warnings and best practices in the UI 
+- Updated the User model with additional security fields 

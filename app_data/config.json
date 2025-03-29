@@ -1,0 +1,18 @@
+{
+  "encryption_method": "scrypt",
+  "auto_logout_minutes": 30,
+  "password_policy": {
+    "min_length": 12,
+    "require_uppercase": true,
+    "require_lowercase": true,
+    "require_numbers": true,
+    "require_special": true,
+    "max_age_days": 90
+  },
+  "backup": {
+    "auto_backup": true,
+    "backup_interval_days": 7,
+    "max_backups": 5,
+    "last_backup": null
+  }
+}

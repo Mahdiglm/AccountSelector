@@ -127,7 +127,8 @@ class Storage:
                         r=SCRYPT_R,
                         p=SCRYPT_P
                     )
-                    key = base64.urlsafe_b64encode(kdf.derive(password))
+                    derived_key = kdf.derive(password)
+                    key = base64.urlsafe_b64encode(derived_key)
                 else:
                     # Use PBKDF2 for key derivation
                     kdf = PBKDF2HMAC(
@@ -136,7 +137,8 @@ class Storage:
                         salt=salt,
                         iterations=ITERATIONS,
                     )
-                    key = base64.urlsafe_b64encode(kdf.derive(password))
+                    derived_key = kdf.derive(password)
+                    key = base64.urlsafe_b64encode(derived_key)
                 
                 # Generate a key check value to verify the key is correct when loading
                 check_value = hashlib.sha256(key).digest()[:8]
@@ -167,7 +169,8 @@ class Storage:
                             r=SCRYPT_R,
                             p=SCRYPT_P
                         )
-                        derived_key = base64.urlsafe_b64encode(kdf.derive(password))
+                        derived_key = kdf.derive(password)
+                        derived_key = base64.urlsafe_b64encode(derived_key)
                     else:
                         kdf = PBKDF2HMAC(
                             algorithm=hashes.SHA256(),
@@ -175,7 +178,8 @@ class Storage:
                             salt=salt,
                             iterations=ITERATIONS,
                         )
-                        derived_key = base64.urlsafe_b64encode(kdf.derive(password))
+                        derived_key = kdf.derive(password)
+                        derived_key = base64.urlsafe_b64encode(derived_key)
                     
                     # Verify the key is correct using the check value
                     derived_check = hashlib.sha256(derived_key).digest()[:8]
