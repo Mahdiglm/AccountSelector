@@ -1,0 +1,18 @@
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence,
+# they will be requested for review when someone opens a pull request.
+* @Mahdiglm
+
+# Data layer owners
+/src/data/ @Mahdiglm
+
+# Utility owners
+/src/utils/ @Mahdiglm
+
+# Application owners
+/src/main.py @Mahdiglm
+/account_selector.py @Mahdiglm
+
+# Documentation owners
+/*.md @Mahdiglm
+/docs/ @Mahdiglm 
