@@ -216,7 +216,16 @@ class Storage:
                 decoded_key = base64.urlsafe_b64decode(key)
                 if len(decoded_key) != 32:
                     logger.warning(f"Decoded key has incorrect length: {len(decoded_key)} bytes (should be 32)")
-                    raise ValueError(f"Invalid key length: {len(decoded_key)} bytes (should be 32)")
+                    
+                    # Special handling for common case of 33-byte keys
+                    if len(decoded_key) == 33:
+                        logger.info("Found 33-byte key, truncating to 32 bytes")
+                        # Truncate to 32 bytes and re-encode
+                        fixed_key = base64.urlsafe_b64encode(decoded_key[:32])
+                        key = fixed_key
+                        logger.info("Key truncated and re-encoded successfully")
+                    else:
+                        raise ValueError(f"Invalid key length: {len(decoded_key)} bytes (should be 32)")
                 
                 # Initialize the Fernet cipher with the properly formatted key
                 self.cipher = Fernet(key)

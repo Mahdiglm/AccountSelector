@@ -9,6 +9,15 @@
 
 Account Selector is a secure desktop application for managing and organizing account credentials with enhanced security features.
 
+## Version 1.2.3-beta
+
+This maintenance release includes critical fixes for encryption key handling:
+
+- **Fixed 33-byte Key Issue**: Resolved critical startup error affecting some installations
+- **Automatic Key Repair**: Implemented automatic truncation for oversized encryption keys
+- **Enhanced Validation**: Improved key format validation with better error reporting
+- **Startup Reliability**: Ensured application starts successfully across different environments
+
 ## Version 1.2.2-beta
 
 This maintenance release includes improved fixes for encryption key handling:

@@ -69,35 +69,43 @@ def fix_key_file():
             # Try to fix the key
             # 1. Check if this is a base64 encoded key
             try:
-                # Try to decode the key to see if it's valid base64
-                base64.urlsafe_b64decode(key + b'=' * (4 - len(key) % 4))
-                logger.info("Key is valid base64 format, applying padding fix")
-            except Exception as e:
-                logger.warning(f"Key is not valid base64: {e}")
-                print(f"The key does not appear to be valid base64: {e}")
-            
-            # Ensure proper padding
-            padding_needed = 4 - (len(key) % 4 if len(key) % 4 else 0)
-            if padding_needed < 4:
-                fixed_key = key + b'=' * padding_needed
-                logger.info(f"Added {padding_needed} padding bytes")
-                print(f"Added {padding_needed} padding bytes to fix key")
-            else:
-                fixed_key = key
-            
-            # Ensure key is exactly right length for Fernet (32 bytes when decoded)
-            try:
-                # Attempt to decode to check byte length
-                decoded = base64.urlsafe_b64decode(fixed_key)
-                logger.info(f"Decoded key length: {len(decoded)} bytes")
+                # Ensure proper padding
+                padding_needed = 4 - (len(key) % 4 if len(key) % 4 else 0)
+                if padding_needed < 4:
+                    key_with_padding = key + b'=' * padding_needed
+                    logger.info(f"Added {padding_needed} padding bytes")
+                    print(f"Added {padding_needed} padding bytes to fix key")
+                else:
+                    key_with_padding = key
                 
-                if len(decoded) != 32:
-                    logger.error(f"Key has incorrect length when decoded: {len(decoded)} bytes (should be 32)")
-                    print(f"Error: Decoded key length is {len(decoded)} bytes (should be 32)")
+                # Try to decode the key to see if it's valid base64
+                decoded_key = base64.urlsafe_b64decode(key_with_padding)
+                logger.info(f"Decoded key length: {len(decoded_key)} bytes")
+                print(f"Decoded key length: {len(decoded_key)} bytes")
+                
+                # Special handling for 33-byte keys (common issue)
+                if len(decoded_key) == 33:
+                    logger.info("Found 33-byte key, truncating to 32 bytes")
+                    print("Found 33-byte key, truncating to 32 bytes to meet Fernet requirements")
+                    # Create a new 32-byte key by removing the last byte
+                    truncated_key = decoded_key[:32]
+                    # Re-encode to base64
+                    fixed_key = base64.urlsafe_b64encode(truncated_key)
+                    logger.info(f"Truncated and re-encoded key length: {len(fixed_key)} bytes")
+                    print(f"New key length after fix: {len(fixed_key)} bytes")
+                elif len(decoded_key) != 32:
+                    logger.error(f"Key has incorrect length when decoded: {len(decoded_key)} bytes (should be 32)")
+                    print(f"Error: Decoded key length is {len(decoded_key)} bytes (should be 32)")
+                    print("This key requires regeneration. The repair utility cannot fix this issue.")
                     return False
+                else:
+                    # If it's exactly 32 bytes, just make sure padding is correct
+                    fixed_key = base64.urlsafe_b64encode(decoded_key)
+                    logger.info("Key length is correct, just fixed padding")
+                    print("Key length is correct at 32 bytes, fixed padding if needed")
             except Exception as e:
-                logger.error(f"Failed to decode key: {e}")
-                print(f"Error: Failed to decode key: {e}")
+                logger.error(f"Failed to decode/fix key: {e}")
+                print(f"Error: Failed to decode/fix key: {e}")
                 return False
             
             # Try to create a Fernet instance with the fixed key
