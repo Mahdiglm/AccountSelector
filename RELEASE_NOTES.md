@@ -1,5 +1,16 @@
 # Release Notes
 
+## Version 1.2.2-beta (2025-05-10)
+
+### Bug Fixes
+
+- Improved solution for encryption key formatting issues
+- Enhanced key validation and repair utility with better diagnostics
+- Added comprehensive key format checking and correction
+- Implemented proper base64 padding with precise validation
+- Added emergency key regeneration option as fallback
+- Fixed issues that prevented application startup in some environments
+
 ## Version 1.2.1-beta (2025-05-10)
 
 ### Bug Fixes

@@ -141,7 +141,6 @@ class Storage:
                     )
                     derived_key = kdf.derive(password)
                     # Ensure the key is properly formatted for Fernet (must be 32 url-safe base64-encoded bytes)
-                    # This requires the key to be exactly 32 bytes
                     key = base64.urlsafe_b64encode(derived_key)
                 else:
                     # Use PBKDF2 for key derivation
@@ -154,6 +153,14 @@ class Storage:
                     derived_key = kdf.derive(password)
                     # Ensure the key is properly formatted for Fernet
                     key = base64.urlsafe_b64encode(derived_key)
+                
+                # Verify the key is valid for Fernet before saving
+                try:
+                    Fernet(key)
+                    logger.info("New key validated successfully")
+                except Exception as e:
+                    logger.critical(f"Generated key is not valid for Fernet: {e}")
+                    raise ValueError(f"Failed to generate a valid encryption key: {e}")
                 
                 # Save ONLY salt and key
                 os.makedirs(os.path.dirname(self.key_file), exist_ok=True)
@@ -197,17 +204,27 @@ class Storage:
                     # Use the stored key directly if no master password provided for verification
                     key = stored_key
             
-            # Ensure the key has proper padding if needed
-            # Fernet keys must be 32 bytes base64-encoded, which means they're 44 bytes long when encoded
-            if len(key) != 44 and not key.endswith(b'='):
-                # Add padding if missing
-                padding = b'=' * (44 - len(key))
-                key = key + padding
-                logger.info("Applied padding to the key to meet Fernet requirements")
+            # Ensure the key has proper base64 padding if needed
+            padding_needed = 4 - (len(key) % 4 if len(key) % 4 else 0)
+            if padding_needed < 4:
+                key = key + b'=' * padding_needed
+                logger.info(f"Applied {padding_needed} bytes of padding to the key")
             
-            # Initialize the Fernet cipher
-            self.cipher = Fernet(key)
-            self.encryption_initialized = True
+            # Validate the key format
+            try:
+                # Check if the key is valid base64 and decodes to exactly 32 bytes
+                decoded_key = base64.urlsafe_b64decode(key)
+                if len(decoded_key) != 32:
+                    logger.warning(f"Decoded key has incorrect length: {len(decoded_key)} bytes (should be 32)")
+                    raise ValueError(f"Invalid key length: {len(decoded_key)} bytes (should be 32)")
+                
+                # Initialize the Fernet cipher with the properly formatted key
+                self.cipher = Fernet(key)
+                self.encryption_initialized = True
+                logger.info("Encryption successfully initialized")
+            except Exception as e:
+                logger.critical(f"Invalid encryption key format: {e}")
+                raise ValueError(f"Invalid encryption key format: {e}")
             
         except (IOError, ValueError, InvalidToken) as e:
             logger.critical(f"Error initializing encryption: {str(e)}", exc_info=True)
