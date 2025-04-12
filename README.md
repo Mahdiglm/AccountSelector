@@ -9,6 +9,15 @@
 
 Account Selector is a secure desktop application for managing and organizing account credentials with enhanced security features.
 
+## Version 1.2.1-beta
+
+This maintenance release includes critical fixes for encryption key handling:
+
+- **Fixed Critical Error**: Corrected encryption key formatting issue that prevented application startup
+- **Improved Stability**: Enhanced key validation and error handling
+- **Key Repair Utility**: Added fix_key_format.py utility for repairing existing installations
+- **Security Enhancements**: All features from 1.2.0-beta plus improved key format validation
+
 ## Version 1.2.0-beta
 
 This beta release includes significant security enhancements, improved reliability, and additional features:
@@ -200,6 +209,10 @@ This application stores sensitive information. For maximum security:
 ### Emergency Key Regeneration
 
 If the master password is forgotten AND backups are unavailable, the `_regenerate_encryption_key.py` script can be run (`python _regenerate_encryption_key.py`). **WARNING:** This is a destructive operation. It will prompt for a _new_ master password and generate a _new_ encryption key, making all previously encrypted account data **permanently inaccessible**. Use with extreme caution as a last resort.
+
+### Key Repair Utility
+
+For users experiencing encryption initialization errors, a key repair utility is included. Run `python fix_key_format.py` to fix improper key formatting issues. This tool creates a backup of your existing key file before making any changes and validates the repaired key.
 
 ## Testing
 

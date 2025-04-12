@@ -140,6 +140,8 @@ class Storage:
                         p=SCRYPT_P
                     )
                     derived_key = kdf.derive(password)
+                    # Ensure the key is properly formatted for Fernet (must be 32 url-safe base64-encoded bytes)
+                    # This requires the key to be exactly 32 bytes
                     key = base64.urlsafe_b64encode(derived_key)
                 else:
                     # Use PBKDF2 for key derivation
@@ -150,6 +152,7 @@ class Storage:
                         iterations=ITERATIONS,
                     )
                     derived_key = kdf.derive(password)
+                    # Ensure the key is properly formatted for Fernet
                     key = base64.urlsafe_b64encode(derived_key)
                 
                 # Save ONLY salt and key
@@ -162,7 +165,7 @@ class Storage:
                 # Load existing key and salt
                 with open(self.key_file, "rb") as f:
                     data = f.read()
-                    if len(data) < 16 + 32: # Basic check for salt + key length
+                    if len(data) < 16: # Basic check for salt length
                          raise ValueError("Invalid key file format.")
                     salt = data[:16]
                     stored_key = data[16:] # Key starts after salt
@@ -193,6 +196,14 @@ class Storage:
                 else:
                     # Use the stored key directly if no master password provided for verification
                     key = stored_key
+            
+            # Ensure the key has proper padding if needed
+            # Fernet keys must be 32 bytes base64-encoded, which means they're 44 bytes long when encoded
+            if len(key) != 44 and not key.endswith(b'='):
+                # Add padding if missing
+                padding = b'=' * (44 - len(key))
+                key = key + padding
+                logger.info("Applied padding to the key to meet Fernet requirements")
             
             # Initialize the Fernet cipher
             self.cipher = Fernet(key)

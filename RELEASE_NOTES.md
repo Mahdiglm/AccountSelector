@@ -1,5 +1,14 @@
 # Release Notes
 
+## Version 1.2.1-beta (2025-05-10)
+
+### Bug Fixes
+
+- Fixed critical encryption initialization error that prevented application startup
+- Corrected base64 encoding format for Fernet encryption keys
+- Improved key validation and error handling
+- Added utility script (fix_key_format.py) to repair existing installations with key format issues
+
 ## Version 1.2.0-beta (2025-05-10)
 
 ### Enhanced Security
