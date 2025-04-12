@@ -1,6 +1,6 @@
 # Release Notes
 
-## Version 1.2.3-beta (2023-04-12)
+## Version 1.2.3-beta (2025-04-12)
 
 ### Bug Fixes
 
@@ -9,7 +9,7 @@
 - Enhanced error reporting during encryption initialization
 - Improved resilience and automatic recovery for common key format issues
 
-## Version 1.2.2-beta (2023-04-12)
+## Version 1.2.2-beta (2025-04-12)
 
 ### Bug Fixes
 
@@ -29,7 +29,7 @@
 - Improved key validation and error handling
 - Added utility script (fix_key_format.py) to repair existing installations with key format issues
 
-## Version 1.2.0-beta (2025-05-12)
+## Version 1.2.0-beta (2025-04-12)
 
 ### Enhanced Security
 

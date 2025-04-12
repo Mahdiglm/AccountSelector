@@ -18,16 +18,6 @@ This maintenance release includes critical fixes for encryption key handling:
 - **Enhanced Validation**: Improved key format validation with better error reporting
 - **Startup Reliability**: Ensured application starts successfully across different environments
 
-## Version 1.2.2-beta
-
-This maintenance release includes improved fixes for encryption key handling:
-
-- **Enhanced Key Handling**: Completely rewrote key validation and repair logic
-- **Better Diagnostics**: Improved error messages and debugging for key issues
-- **Emergency Recovery**: Added option to regenerate a new key if repair fails
-- **Robust Validation**: Comprehensive validation for key format and compatibility
-- **Startup Reliability**: Fixed issues that prevented application startup in some environments
-
 ```
  █████╗  ██████╗ ██████╗ ██████╗ ██╗   ██╗███╗   ██╗████████╗
 ██╔══██╗██╔════╝██╔════╝██╔═══██╗██║   ██║████╗  ██║╚══██╔══╝

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.3-beta] - 2023-05-10
+## [1.2.3-beta] - 2023-04-12
 
 ### Fixed
 
@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced error handling with specific solutions for common key format problems
 - Improved logging messages for better diagnostics during key validation
 
-## [1.2.2-beta] - 2023-05-10
+## [1.2.2-beta] - 2023-04-12
 
 ### Fixed
 
@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented proper base64 padding handling for encryption keys
 - Added option to regenerate a new key if repair fails
 
-## [1.2.1-beta] - 2025-05-10
+## [1.2.1-beta] - 2025-04-12
 
 ### Fixed
 
@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved key validation to ensure proper format
 - Added key repair utility (fix_key_format.py) for fixing improperly formatted keys in existing installations
 
-## [1.2.0-beta] - 2025-05-10
+## [1.2.0-beta] - 2025-04-12
 
 ### Security
 
