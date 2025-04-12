@@ -9,8 +9,13 @@ import os
 import sys
 import subprocess
 import importlib.util
+import logging
 import time
 from typing import List, Dict, Tuple
+
+# Early setup for logging
+from src.utils.logger_config import setup_logging
+logger = setup_logging() # Initialize logging
 
 def is_bundled():
     """Check if the application is running as a PyInstaller bundle"""
@@ -58,6 +63,7 @@ def check_and_install_dependencies():
         except subprocess.CalledProcessError as e:
             print(f"\nError installing dependencies: {e}")
             print("\nPlease try to install them manually with: pip install -r requirements.txt")
+            logger.error(f"Failed to install dependencies: {e}", exc_info=True)
             input("Press Enter to exit...")
             return False
     
@@ -75,14 +81,18 @@ if __name__ == "__main__":
         
         # Only import after dependencies are installed
         from src.main import AccountSelectorApp
+        logger.info("Dependencies checked/installed.")
             
         # Start the application
-        print("Starting Account Selector...")
+        logger.info("Starting Account Selector...")
         app = AccountSelectorApp()
         app.start()
     except KeyboardInterrupt:
+        logger.info("Application interrupted by user (KeyboardInterrupt). Exiting.")
         print("\nExiting Account Selector. Goodbye!")
         sys.exit(0)
     except Exception as e:
-        print(f"\nAn unexpected error occurred: {str(e)}")
+        # Log the full traceback for unexpected errors
+        logger.critical(f"An unexpected error occurred at the top level: {e}", exc_info=True)
+        print(f"\nAn unexpected critical error occurred. Check app.log for details. Error: {e}")
         sys.exit(1) 

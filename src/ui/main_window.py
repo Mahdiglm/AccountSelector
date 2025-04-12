@@ -75,11 +75,6 @@ class MainWindow(QMainWindow):
         self.status_label = QLabel("Ready")
         self.status_bar.addWidget(self.status_label)
         
-        # Initialize session timer
-        self.session_timer = QTimer(self)
-        self.session_timer.timeout.connect(self.check_session)
-        self.session_timer.start(60000)  # Check every minute
-        
         # Set initial widget to login
         self.stacked_widget.setCurrentWidget(self.login_widget)
 
@@ -166,4 +161,8 @@ class MainWindow(QMainWindow):
         
         about_action = QAction("&About", self)
         about_action.triggered.connect(self.show_about)
-        help_menu.addAction(about_action) 
+        help_menu.addAction(about_action)
+
+    # Method placeholder - needs implementation if session logic is re-added
+    # def check_session(self):
+    #    pass 

@@ -14,8 +14,12 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+import logging
 
 from .models import User, Account, UserRole, AccountCategory, Backup
+
+# Get the logger configured in account_selector.py
+logger = logging.getLogger(__name__) # Use module-specific logger
 
 # Constants for key derivation
 ITERATIONS = 480000  # Increased from 100000 for better security
@@ -37,20 +41,20 @@ class Storage:
         # Create the data directory if it doesn't exist
         os.makedirs(data_folder, exist_ok=True)
         
-        # Initialize config
-        self._initialize_config()
+        # Initialize config FIRST, as it might determine KDF method
+        self._initialize_config() 
         
-        # Initialize encryption key using master password if provided
-        self._initialize_encryption(master_password)
+        # Initialize encryption key - requires master password if key doesn't exist
+        # We pass master_password here if provided, otherwise _initialize_encryption will handle prompting if needed
+        self._initialize_encryption(master_password) 
         
-        # Initialize data storage
+        # Initialize data storage (creates files, default admin if needed and NO key exists)
         self._initialize()
     
     def _initialize_config(self):
         """Initialize configuration settings."""
         default_config = {
             "encryption_method": "scrypt",  # scrypt or pbkdf2
-            "auto_logout_minutes": 30,
             "password_policy": {
                 "min_length": 12,
                 "require_uppercase": True,
@@ -93,28 +97,36 @@ class Storage:
                     # Save the updated config
                     with open(self.config_file, "w") as f:
                         json.dump(self.config, f, indent=2)
-        except:
+        except (IOError, json.JSONDecodeError) as e:
             # If anything goes wrong, use the default config
+            logger.warning(f"Error loading or parsing config file '{self.config_file}': {e}. Using default config.", exc_info=True)
             self.config = default_config
             with open(self.config_file, "w") as f:
                 json.dump(self.config, f, indent=2)
 
     def _initialize_encryption(self, master_password=None):
         """
-        Initialize encryption for secure storage of account passwords.
-        Supports using a master password for key derivation.
+        Initialize encryption. Requires master password if key file is missing or needs verification.
         """
         try:
             if not os.path.exists(self.key_file):
+                logger.info("Encryption key file not found.")
+                # Prompt for master password if not provided
+                while not master_password:
+                    logger.info("A master password is required to create the encryption key.")
+                    master_password = getpass.getpass("Enter a new master password: ")
+                    if not master_password:
+                        logger.info("Master password cannot be empty.")
+                        continue
+                    confirm_password = getpass.getpass("Confirm master password: ")
+                    if master_password != confirm_password:
+                        logger.info("Passwords do not match. Please try again.")
+                        master_password = None # Reset to loop again
+                
+                logger.info("Generating new encryption key...")
                 # Generate a new encryption key
                 salt = os.urandom(16)
-                
-                # If master password is provided, use it
-                # Otherwise use a fixed password (less secure, but convenient)
-                if master_password is None:
-                    password = b"AccountSelectorSecureStorageKey"
-                else:
-                    password = master_password.encode()
+                password = master_password.encode('utf-8')
                 
                 # Use the configured key derivation method
                 encryption_method = self.config.get("encryption_method", "scrypt")
@@ -140,66 +152,57 @@ class Storage:
                     derived_key = kdf.derive(password)
                     key = base64.urlsafe_b64encode(derived_key)
                 
-                # Generate a key check value to verify the key is correct when loading
-                check_value = hashlib.sha256(key).digest()[:8]
-                
-                # Save the key, salt, and check value
+                # Save ONLY salt and key
                 os.makedirs(os.path.dirname(self.key_file), exist_ok=True)
                 with open(self.key_file, "wb") as f:
-                    f.write(salt + check_value + key)
+                    f.write(salt + key)
+                logger.info("New encryption key generated and saved.")
+
             else:
-                # Load existing key, salt, and check value
+                # Load existing key and salt
                 with open(self.key_file, "rb") as f:
                     data = f.read()
+                    if len(data) < 16 + 32: # Basic check for salt + key length
+                         raise ValueError("Invalid key file format.")
                     salt = data[:16]
-                    check_value = data[16:24]
-                    stored_key = data[24:]
-                
-                # If master password is provided, verify it
+                    stored_key = data[16:] # Key starts after salt
+
+                # If master password is provided (e.g., for verification), derive and compare keys
                 if master_password is not None:
-                    password = master_password.encode()
+                    logger.info("Verifying master password...")
+                    password = master_password.encode('utf-8')
                     
                     # Use the configured key derivation method
                     encryption_method = self.config.get("encryption_method", "scrypt")
                     if encryption_method == "scrypt":
-                        kdf = Scrypt(
-                            salt=salt,
-                            length=32,
-                            n=SCRYPT_N,
-                            r=SCRYPT_R,
-                            p=SCRYPT_P
-                        )
+                        kdf = Scrypt(salt=salt, length=32, n=SCRYPT_N, r=SCRYPT_R, p=SCRYPT_P)
                         derived_key = kdf.derive(password)
                         derived_key = base64.urlsafe_b64encode(derived_key)
-                    else:
-                        kdf = PBKDF2HMAC(
-                            algorithm=hashes.SHA256(),
-                            length=32,
-                            salt=salt,
-                            iterations=ITERATIONS,
-                        )
+                    else: # pbkdf2
+                        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=ITERATIONS)
                         derived_key = kdf.derive(password)
                         derived_key = base64.urlsafe_b64encode(derived_key)
                     
-                    # Verify the key is correct using the check value
-                    derived_check = hashlib.sha256(derived_key).digest()[:8]
-                    if derived_check != check_value:
+                    # Direct comparison of derived key with stored key
+                    if derived_key != stored_key:
                         raise ValueError("Invalid master password")
                     
-                    # Use the derived key
+                    # Use the verified key
                     key = derived_key
+                    logger.info("Master password verified successfully.")
                 else:
-                    # Use the stored key
+                    # Use the stored key directly if no master password provided for verification
                     key = stored_key
             
             # Initialize the Fernet cipher
             self.cipher = Fernet(key)
             self.encryption_initialized = True
             
-        except Exception as e:
-            print(f"Error initializing encryption: {str(e)}")
+        except (IOError, ValueError, InvalidToken) as e:
+            logger.critical(f"Error initializing encryption: {str(e)}", exc_info=True)
             self.encryption_initialized = False
-            raise
+            # Depending on context, might need to exit or handle differently
+            raise RuntimeError(f"Encryption initialization failed: {str(e)}")
     
     def _encrypt_password(self, password: str) -> str:
         """Encrypt a password."""
@@ -208,7 +211,7 @@ class Storage:
         
         try:
             return self.cipher.encrypt(password.encode()).decode()
-        except Exception as e:
+        except (TypeError, ValueError) as e: # Catch potential encoding/type errors
             raise RuntimeError(f"Error encrypting password: {str(e)}")
     
     def _decrypt_password(self, encrypted_password: str) -> str:
@@ -220,7 +223,7 @@ class Storage:
             return self.cipher.decrypt(encrypted_password.encode()).decode()
         except InvalidToken:
             raise ValueError("Invalid or corrupted password data")
-        except Exception as e:
+        except (TypeError, ValueError) as e: # Catch potential decoding/type errors
             raise RuntimeError(f"Error decrypting password: {str(e)}")
     
     def _initialize(self):
@@ -240,18 +243,42 @@ class Storage:
                 with open(self.accounts_file, "w") as f:
                     json.dump([], f)
             
-            # Create admin user if no users exist
-            users = self._load_users()
-            if not users:
-                admin_password = "Admin@SecureP@ss123!"  # Default admin password - CHANGE AFTER FIRST LOGIN
-                password_hash = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt())
-                admin_user = User(
-                    username="admin",
-                    password_hash=password_hash.decode(),
-                    role=UserRole.ADMIN
-                )
-                self._save_user(admin_user)
-        except Exception as e:
+            # Create admin user ONLY if no users exist AND encryption is initialized
+            # This assumes the first user sets the master password if needed
+            if self.encryption_initialized:
+                logger.debug("Encryption initialized, checking for existing users for initial setup...")
+                users = self._load_users()
+                logger.debug(f"Found {len(users)} users.")
+                if not users:
+                    logger.info("No users found. Creating initial admin user.")
+                    admin_username = input("Enter username for the initial admin user: ").strip()
+                    while not admin_username:
+                        logger.info("Admin username cannot be empty.")
+                        admin_username = input("Enter username for the initial admin user: ").strip()
+                        
+                    admin_password = None
+                    while not admin_password:
+                        admin_password = getpass.getpass(f"Enter password for admin user '{admin_username}': ")
+                        if not admin_password:
+                            logger.info("Password cannot be empty.")
+                            continue
+                        confirm_password = getpass.getpass("Confirm password: ")
+                        if admin_password != confirm_password:
+                            logger.info("Passwords do not match.")
+                            admin_password = None # Reset
+
+                    try:
+                        # Use create_user to leverage policy validation
+                        self.create_user(admin_username, admin_password, role=UserRole.ADMIN)
+                        logger.info(f"Admin user '{admin_username}' created successfully.")
+                    except ValueError as e:
+                        logger.error(f"Error creating admin user: {e}. Please restart and try again.")
+                        # Exit or raise to prevent inconsistent state? For now, just print.
+                    except (IOError, RuntimeError, Exception) as e: # Catch broader errors during user creation/saving
+                        logger.error(f"Unexpected error creating admin user '{admin_username}': {e}", exc_info=True)
+                    
+        except (IOError, OSError) as e:
+            logger.error(f"Error initializing data storage: {str(e)}", exc_info=True)
             raise RuntimeError(f"Error initializing data storage: {str(e)}")
     
     def _load_users(self) -> List[User]:
@@ -275,7 +302,7 @@ class Storage:
         except json.JSONDecodeError as e:
             # If the file is not valid JSON, raise an error
             raise ValueError(f"Invalid users file format: {str(e)}")
-        except Exception as e:
+        except (IOError, OSError, TypeError, ValueError) as e: # Broader catch for file/data issues
             # For other errors, raise a generic error
             raise RuntimeError(f"Error loading users: {str(e)}")
     
@@ -288,8 +315,8 @@ class Storage:
                 try:
                     with open(self.users_file, "r") as src, open(backup_file, "w") as dst:
                         dst.write(src.read())
-                except Exception as e:
-                    print(f"Warning: Failed to create backup: {str(e)}")
+                except (IOError, OSError) as e:
+                    logger.warning(f"Failed to create users backup file '{backup_file}': {str(e)}", exc_info=True)
             
             # Convert sets to lists for JSON serialization
             user_data = []
@@ -307,7 +334,7 @@ class Storage:
             # Replace the original file with the temporary file
             os.replace(temp_file, self.users_file)
             
-        except Exception as e:
+        except (IOError, OSError, TypeError) as e: # Catch issues during user serialization/saving
             raise RuntimeError(f"Error saving users: {str(e)}")
     
     def _save_user(self, user: User):
@@ -316,7 +343,7 @@ class Storage:
             users = self._load_users()
             users.append(user)
             self._save_users(users)
-        except Exception as e:
+        except (RuntimeError, ValueError) as e: # Catch errors from lower-level functions
             raise RuntimeError(f"Error saving user: {str(e)}")
     
     def _load_accounts(self) -> List[Account]:
@@ -332,7 +359,7 @@ class Storage:
                             account_data["password"] = self._decrypt_password(account_data["password"])
                         except (ValueError, RuntimeError) as e:
                             # Log the error but keep the encrypted password
-                            print(f"Warning: Could not decrypt password for account {account_data.get('name', 'unknown')}: {str(e)}")
+                            logger.warning(f"Warning: Could not decrypt password for account {account_data.get('name', 'unknown')}: {str(e)}")
                             # Mark the password as unavailable
                             account_data["password"] = "[encrypted - decryption failed]"
                     accounts.append(Account.model_validate(account_data))
@@ -343,33 +370,38 @@ class Storage:
         except json.JSONDecodeError as e:
             # If the file is not valid JSON, raise an error
             raise ValueError(f"Invalid accounts file format: {str(e)}")
-        except Exception as e:
+        except (IOError, OSError, TypeError, ValueError, RuntimeError) as e: # Broader catch for file/data/decryption issues
             # For other errors, raise a generic error
             raise RuntimeError(f"Error loading accounts: {str(e)}")
     
     def _save_accounts(self, accounts: List[Account]):
         """Save accounts to storage with encrypted passwords."""
+        if not self.encryption_initialized:
+             # Fail explicitly if encryption isn't ready
+             raise RuntimeError("Cannot save accounts: Encryption not initialized.")
+             
         try:
             # Create a backup of the current file if it exists
             if os.path.exists(self.accounts_file):
                 backup_file = f"{self.accounts_file}.bak"
                 try:
-                    with open(self.accounts_file, "r") as src, open(backup_file, "w") as dst:
-                        dst.write(src.read())
-                except Exception as e:
-                    print(f"Warning: Failed to create backup: {str(e)}")
+                    # Use shutil.copy2 to preserve metadata if possible
+                    shutil.copy2(self.accounts_file, backup_file)
+                except (IOError, OSError) as e:
+                    logger.warning(f"Failed to create accounts backup file '{backup_file}': {str(e)}", exc_info=True)
             
             # Encrypt passwords before saving
             account_data = []
             for account in accounts:
                 data = account.model_dump()
-                # Only encrypt if not already encrypted
-                if "password" in data and not data["password"].startswith("gAAAAAB"):
+                # Encrypt the password field if it exists and is not already encrypted
+                if "password" in data and isinstance(data["password"], str) and data["password"] and not data["password"].startswith("gAAAAAB"):
                     try:
                         data["password"] = self._encrypt_password(data["password"])
                     except Exception as e:
-                        # Log the error but continue with unencrypted password
-                        print(f"Warning: Failed to encrypt password for account {data.get('name', 'unknown')}: {str(e)}")
+                        # If encryption fails for a specific password, raise an error.
+                        # Do not save plaintext passwords.
+                        raise RuntimeError(f"CRITICAL: Failed to encrypt password for account {data.get('name', 'unknown')}: {str(e)}. Aborting save.")
                 account_data.append(data)
             
             # Write to a temporary file first, then rename to avoid data loss on crash
@@ -381,7 +413,17 @@ class Storage:
             os.replace(temp_file, self.accounts_file)
             
         except Exception as e:
-            raise RuntimeError(f"Error saving accounts: {str(e)}")
+            # Attempt to restore backup if save failed after backup was made
+            if 'backup_file' in locals() and os.path.exists(backup_file):
+                 try:
+                      shutil.move(backup_file, self.accounts_file)
+                      logger.warning(f"Account save failed. Attempting to restore from backup '{backup_file}'.")
+                      logger.info(f"Restored accounts file from backup '{backup_file}'.")
+                 except Exception as re:
+                      logger.critical(f"Failed to save accounts AND failed to restore backup '{backup_file}': {re}", exc_info=True)
+                      
+            # Re-raise original error if backup restoration wasn't attempted or failed
+            raise # Reraises the exception caught by the outer try block
     
     # User management methods
     def get_user(self, username: str) -> Optional[User]:
@@ -395,7 +437,7 @@ class Storage:
                 if user.username == username:
                     return user
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError) as e: # Errors from _load_users
             raise RuntimeError(f"Error retrieving user: {str(e)}")
     
     def create_user(self, username: str, password: str, role: UserRole = UserRole.USER) -> User:
@@ -437,7 +479,7 @@ class Storage:
         except ValueError as e:
             # Re-raise validation errors
             raise
-        except Exception as e:
+        except (IOError, RuntimeError, Exception) as e: # Catch broader errors during user creation/saving
             raise RuntimeError(f"Error creating user: {str(e)}")
     
     def _validate_password_against_policy(self, password: str) -> None:
@@ -446,6 +488,8 @@ class Storage:
         Raises ValueError if the password doesn't meet the policy.
         """
         policy = self.config.get("password_policy", {})
+        logger.debug(f"Validating password against policy: {policy}")
+        logger.debug(f"Password provided (length {len(password)}): {'*' * len(password)}") # Log length, not password itself
         
         # Check minimum length
         min_length = policy.get("min_length", 8)
@@ -498,40 +542,95 @@ class Storage:
             raise RuntimeError(f"Error during authentication: {str(e)}")
     
     def update_user(self, username: str, new_password: Optional[str] = None, 
-                   new_role: Optional[UserRole] = None) -> Optional[User]:
+                   new_role: Optional[UserRole] = None,
+                   selected_account_ids: Optional[List[str]] = None) -> Optional[User]:
         """Update a user's password or role."""
         # Input validation
         if not username:
             raise ValueError("Username is required")
             
-        # Validate new password if provided
-        if new_password:
-            self._validate_password_against_policy(new_password)
-            
+        user_to_update = None
+        updated = False
+        
         try:
             users = self._load_users()
             
             for i, user in enumerate(users):
                 if user.username == username:
+                    user_to_update = users[i] # Keep reference to the user object in the list
+                    
                     if new_password:
-                        password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt())
-                        users[i].password_hash = password_hash.decode()
-                        users[i].password_last_changed = datetime.now()
+                         # Validate password against policy
+                         self._validate_password_against_policy(new_password)
+                         
+                         # Check password history if enabled
+                         prevent_reuse = self.config.get("password_policy", {}).get("prevent_reuse", True)
+                         history_count = self.config.get("password_policy", {}).get("history_count", 3)
+                         
+                         if prevent_reuse and history_count > 0:
+                             if not hasattr(user_to_update, "password_history") or user_to_update.password_history is None:
+                                 user_to_update.password_history = []
+                                 
+                             # Check new password against history
+                             for old_hash in user_to_update.password_history:
+                                 logger.debug(f"Checking history for user {username}: Comparing new pw against old hash {old_hash[:10]}...")
+                                 # Check for match first
+                                 matched = False
+                                 try:
+                                     matched = bcrypt.checkpw(new_password.encode('utf-8'), old_hash.encode('utf-8'))
+                                 except ValueError: # Catch specific errors from checkpw, e.g., invalid salt/hash
+                                     logger.warning(f"Ignoring potentially invalid hash in password history for user {username}: {old_hash[:10]}...", exc_info=True)
+                                     continue # Skip this invalid hash
+
+                                 if matched:
+                                     logger.warning(f"Password reuse detected for user {username}. New password matches hash in history.")
+                                     # THIS is the error we want to propagate out
+                                     raise ValueError(f"New password cannot be the same as one of the last {history_count} passwords.")
+                                 
+                             # --- If reuse check passed, proceed --- 
+                             
+                             password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+                             
+                             # Add the OLD hash to history AFTER check passes and BEFORE saving new hash
+                             if user_to_update.password_hash:
+                                user_to_update.password_history.append(user_to_update.password_hash)
+                                # Trim history to the correct count
+                                user_to_update.password_history = user_to_update.password_history[-history_count:]
+                             
+                             # Now update the user's hash
+                             user_to_update.password_hash = password_hash.decode('utf-8')
+                             user_to_update.password_last_changed = datetime.now()
+                             updated = True
+                    
+                    if selected_account_ids is not None: # Allow updating selection
+                        # Basic validation: Ensure it's a list of strings
+                        if isinstance(selected_account_ids, list) and all(isinstance(item, str) for item in selected_account_ids):
+                            user_to_update.selected_account_ids = selected_account_ids
+                            updated = True
+                        else:
+                            logger.warning("Warning: Invalid format for selected_account_ids, not updated.") # Or raise ValueError?
                     
                     if new_role:
-                        if new_role not in [role.value for role in UserRole]:
+                        if new_role not in [role.value for role in UserRole]: # Check against enum values
                             raise ValueError(f"Invalid role: {new_role}")
-                        users[i].role = new_role
+                        user_to_update.role = new_role
+                        updated = True
                     
-                    self._save_users(users)
-                    return users[i]
+                    break # Found user, exit loop
             
-            return None
+            if user_to_update and updated:
+                 self._save_users(users)
+                 return user_to_update
+            elif user_to_update and not updated:
+                 return user_to_update # Return user even if nothing changed
+            else:
+                 return None # User not found
+                 
         except ValueError as e:
             # Re-raise validation errors
             raise
-        except Exception as e:
-            raise RuntimeError(f"Error updating user: {str(e)}")
+        except (IOError, RuntimeError, Exception) as e: # Catch broader errors during user update
+            raise RuntimeError(f"Error updating user '{username}': {str(e)}")
     
     def delete_user(self, username: str) -> bool:
         """Delete a user and their accounts."""
@@ -564,7 +663,7 @@ class Storage:
         except ValueError as e:
             # Re-raise validation errors
             raise
-        except Exception as e:
+        except (IOError, RuntimeError, Exception) as e: # Catch broader errors during user deletion
             raise RuntimeError(f"Error deleting user: {str(e)}")
     
     def get_users_by_role(self, role: UserRole) -> List[User]:
@@ -642,7 +741,12 @@ class Storage:
             expiry_date=account_data.get("expiry_date")
         )
         
+        # Check if account ID already exists before adding
         accounts = self._load_accounts()
+        if any(acc.id == account.id for acc in accounts):
+            logger.warning(f"Warning: Account with ID {account.id} ('{account.name}') already exists. Skipping import.")
+            return None # Indicate skipped
+            
         accounts.append(account)
         self._save_accounts(accounts)
         
@@ -891,7 +995,7 @@ class Storage:
                 if os.path.exists(temp_dir):
                     shutil.rmtree(temp_dir)
                     
-        except Exception as e:
+        except (IOError, RuntimeError, Exception) as e:
             raise RuntimeError(f"Error creating backup: {str(e)}")
 
     def restore_from_backup(self, backup_path: str, master_password: Optional[str] = None) -> Dict[str, Any]:
@@ -926,13 +1030,22 @@ class Storage:
                 
                 # Decrypt if necessary
                 if is_encrypted:
-                    if not self.encryption_initialized:
-                        if not master_password:
-                            raise ValueError("Master password required for encrypted backup")
-                        
-                        # Initialize encryption with the provided master password
-                        self._initialize_encryption(master_password)
-                    
+                    # If a master password is provided for restore, ALWAYS use it 
+                    # to initialize/re-initialize the cipher for decryption.
+                    if master_password:
+                        try:
+                            # Attempt to initialize/verify using the provided password
+                            self._initialize_encryption(master_password)
+                        except ValueError as e: # Catch invalid password during init
+                             raise ValueError("Invalid master password or corrupted backup") from e
+                        except RuntimeError as e: # Catch other init errors
+                             raise RuntimeError(f"Failed to initialize encryption for restore: {e}") from e
+                    elif not self.encryption_initialized:
+                        # If no password provided AND not initialized, it's an error
+                        raise ValueError("Master password required: Encryption not initialized and backup is encrypted.")
+                    # If no password provided but encryption IS initialized, 
+                    # proceed using the existing self.cipher. 
+                     
                     # Read the encrypted file
                     with open(backup_path, "rb") as f:
                         encrypted_data = f.read()
@@ -1017,7 +1130,7 @@ class Storage:
                 if os.path.exists(temp_dir):
                     shutil.rmtree(temp_dir)
                     
-        except Exception as e:
+        except (IOError, RuntimeError, Exception) as e:
             raise RuntimeError(f"Error restoring from backup: {str(e)}")
     
     def list_backups(self) -> List[Backup]:
@@ -1087,16 +1200,16 @@ class Storage:
                             is_encrypted=metadata.get("is_encrypted", is_encrypted)
                         )
                         backups.append(backup)
-                except Exception as e:
+                except (IOError, OSError, zipfile.BadZipFile, json.JSONDecodeError, TypeError, ValueError, RuntimeError) as e:
                     # Skip problematic backups
-                    print(f"Warning: Failed to process backup {filename}: {str(e)}")
+                    logger.warning(f"Warning: Failed to process backup {filename}: {str(e)}")
             
             # Sort backups by creation time (newest first)
             backups.sort(key=lambda b: b.created_at, reverse=True)
             
             return backups
             
-        except Exception as e:
+        except (IOError, OSError) as e:
             raise RuntimeError(f"Error listing backups: {str(e)}")
     
     def auto_backup(self) -> Optional[Backup]:
@@ -1141,79 +1254,16 @@ class Storage:
                         try:
                             if os.path.exists(old_backup.file_path):
                                 os.remove(old_backup.file_path)
-                        except Exception as e:
-                            print(f"Warning: Failed to delete old backup {old_backup.file_path}: {str(e)}")
+                        except (IOError, OSError) as e:
+                            logger.warning(f"Warning: Failed to delete old backup {old_backup.file_path}: {str(e)}")
             
             return backup
             
-        except Exception as e:
-            print(f"Auto-backup failed: {str(e)}")
+        except (RuntimeError, ValueError, IOError, OSError) as e:
+            # Use print_warning or proper logging if available
+            logger.warning(f"Warning: Auto-backup failed: {str(e)}")
             return None
 
-    def authenticate(self, username: str, password: str) -> Optional[User]:
-        """
-        Authenticate a user with username and password.
-        
-        Args:
-            username: Username to authenticate
-            password: Password to verify
-            
-        Returns:
-            User object if authentication successful, None otherwise
-        """
-        user = self.get_user(username)
-        
-        if not user:
-            return None
-        
-        if self.verify_password(username, password):
-            # Update last login time
-            user.last_login = datetime.now()
-            
-            # Generate session token
-            session_token = str(uuid.uuid4())
-            user.session_token = session_token
-            
-            # Set session expiration (default 8 hours)
-            if "session" in self.config and "expiration_hours" in self.config["session"]:
-                hours = self.config["session"]["expiration_hours"]
-            else:
-                hours = 8
-                
-            user.session_expires = datetime.now() + timedelta(hours=hours)
-            
-            # Save updated user data
-            self._save_users()
-            
-            return user
-        
-        return None
-    
-    def verify_password(self, username: str, password: str) -> bool:
-        """
-        Verify a user's password.
-        
-        Args:
-            username: Username to check
-            password: Password to verify
-            
-        Returns:
-            True if password is correct, False otherwise
-        """
-        user = self.get_user(username)
-        
-        if not user or not user.password_hash:
-            return False
-        
-        # Convert password to bytes
-        password_bytes = password.encode('utf-8')
-        
-        # Verify password
-        try:
-            return bcrypt.checkpw(password_bytes, user.password_hash.encode('utf-8'))
-        except Exception:
-            return False
-    
     def change_password(self, username: str, new_password: str) -> bool:
         """
         Change a user's password.
@@ -1263,8 +1313,8 @@ class Storage:
             
             return True
             
-        except Exception as e:
-            print(f"Error changing password: {str(e)}")
+        except Exception as e: # Catch broader exception here as bcrypt can raise various things
+            logger.error(f"Error changing password for user '{username}': {e}", exc_info=True)
             return False
     
     def register_user(self, username: str, password: str, full_name: str = "") -> bool:
@@ -1318,8 +1368,8 @@ class Storage:
             
             return True
             
-        except Exception as e:
-            print(f"Error registering user: {str(e)}")
+        except Exception as e: # Catch broader exception for registration process
+            logger.error(f"Error registering user '{username}': {e}", exc_info=True)
             return False
     
     def user_exists(self, username: str) -> bool:
@@ -1334,93 +1384,6 @@ class Storage:
         """
         users = self._load_users()
         return any(user.username == username for user in users)
-    
-    def update_user_session(self, user: User) -> bool:
-        """
-        Update a user's session activity timestamp.
-        
-        Args:
-            user: User to update
-            
-        Returns:
-            True if update successful, False otherwise
-        """
-        if not user or not user.username:
-            return False
-            
-        stored_user = self.get_user(user.username)
-        if not stored_user:
-            return False
-        
-        # Update last activity time
-        user.last_activity = datetime.now()
-        stored_user.last_activity = datetime.now()
-        
-        # Save updated user data
-        self._save_users()
-        
-        return True
-    
-    def check_session_expired(self, user: User) -> bool:
-        """
-        Check if a user's session has expired.
-        
-        Args:
-            user: User to check
-            
-        Returns:
-            True if session has expired, False otherwise
-        """
-        if not user or not user.session_expires:
-            return True
-            
-        return datetime.now() > user.session_expires
-    
-    def check_session_idle(self, user: User) -> bool:
-        """
-        Check if a user's session is idle.
-        
-        Args:
-            user: User to check
-            
-        Returns:
-            True if session is idle, False otherwise
-        """
-        if not user or not user.last_activity:
-            return False
-            
-        if "session" in self.config and "idle_minutes" in self.config["session"]:
-            idle_minutes = self.config["session"]["idle_minutes"]
-        else:
-            idle_minutes = 30
-            
-        idle_time = datetime.now() - timedelta(minutes=idle_minutes)
-        
-        return user.last_activity < idle_time
-    
-    def logout_user(self, username: str) -> bool:
-        """
-        Log out a user by invalidating their session.
-        
-        Args:
-            username: Username to log out
-            
-        Returns:
-            True if logout successful, False otherwise
-        """
-        user = self.get_user(username)
-        
-        if not user:
-            return False
-        
-        # Invalidate session
-        user.session_token = None
-        user.session_expires = None
-        
-        # Save updated user data
-        self._save_users()
-        
-        return True
     
     def update_config(self, new_config: Dict[str, Any]) -> bool:
         """
@@ -1447,11 +1410,16 @@ class Storage:
             
             return True
             
-        except Exception as e:
-            print(f"Error updating config: {str(e)}")
+        except (IOError, RuntimeError, Exception) as e:
+            logger.error(f"Error updating config: {str(e)}")
             return False
 
     def save_config(self):
         """Save the current configuration to file."""
         with open(self.config_file, "w") as f:
-            json.dump(self.config, f, indent=2) 
+            json.dump(self.config, f, indent=2)
+
+    # Add public method to get users
+    def get_users(self) -> List[User]:
+         """Load and return all users."""
+         return self._load_users() 

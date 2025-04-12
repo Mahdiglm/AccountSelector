@@ -1,4 +1,4 @@
-# 🔐 Account Selector
+# Account Selector
 
 <div align="center">
 
@@ -9,25 +9,23 @@
 
 Account Selector is a secure desktop application for managing and organizing account credentials with enhanced security features.
 
-## Version 1.1.0-beta
+## Version 1.2.0-beta
 
-This beta release includes significant security enhancements, backup functionality, and improved usability:
+This beta release includes significant security enhancements, improved reliability, and additional features:
 
-- **Password Expiration**: Enforces password changes based on configurable policies
-- **Auto-logout**: Automatically logs out inactive users for improved security
-- **Backup & Restore**: Complete system for encrypted backups with scheduling
-- **Password History**: Prevents reuse of previous passwords
-- **User Sessions**: Enhanced session management with improved security
-- **Modern UI**: Updated user interface with better feedback and visualizations
+- **Enhanced Security**: Removed hardcoded credentials, improved key management, secure password handling
+- **Improved Reliability**: Comprehensive logging, unit testing, better error handling
+- **New Features**: Account persistence, enhanced backup functionality
+- **User Experience**: Better feedback, visualizations, and error reporting
 
 ```
  █████╗  ██████╗ ██████╗ ██████╗ ██╗   ██╗███╗   ██╗████████╗
 ██╔══██╗██╔════╝██╔════╝██╔═══██╗██║   ██║████╗  ██║╚══██╔══╝
-███████║██║     ██║     ██║   ██║██║   ██║██╔██╗ ██║   ██║   
-██╔══██║██║     ██║     ██║   ██║██║   ██║██║╚██╗██║   ██║   
-██║  ██║╚██████╗╚██████╗╚██████╔╝╚██████╔╝██║ ╚████║   ██║   
-╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   
-███████╗███████╗██╗     ███████╗ ██████╗████████╗ ██████╗ ██████╗ 
+███████║██║     ██║     ██║   ██║██║   ██║██╔██╗ ██║   ██║
+██╔══██║██║     ██║     ██║   ██║██║   ██║██║╚██╗██║   ██║
+██║  ██║╚██████╗╚██████╗╚██████╔╝╚██████╔╝██║ ╚████║   ██║
+╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝   ╚═╝
+███████╗███████╗██╗     ███████╗ ██████╗████████╗ ██████╗ ██████╗
 ██╔════╝██╔════╝██║     ██╔════╝██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗
 ███████╗█████╗  ██║     █████╗  ██║        ██║   ██║   ██║██████╔╝
 ╚════██║██╔══╝  ██║     ██╔══╝  ██║        ██║   ██║   ██║██╔══██╗
@@ -37,37 +35,40 @@ This beta release includes significant security enhancements, backup functionali
 
 </div>
 
-## ✨ Features
+## Features
 
-- **🔑 User Authentication**: Login and signup system with secure password storage
-- **👥 Role-Based Access Control**: Admins manage accounts, users can select/purchase them
-- **📝 Account Management**: Admin panel for creating, viewing, editing, and deleting accounts
-- **🔍 User Selection**: Users can browse and select accounts to view (read-only access)
-- **🛡️ Password Analysis & Generation**: Analyze password strength and generate secure passwords
-- **🏷️ Account Categories & Tags**: Organize accounts by categories and custom tags
-- **📤 Import/Export**: Import and export accounts in JSON, CSV, and text formats
-- **🎨 Theme Customization**: Choose from multiple visual themes for the interface
-- **📊 Statistics Dashboard**: View analytics on password strength, categories, and more
-- **🖥️ Appealing UI Interface**: Modern, colorful, and user-friendly interface
-- **🔒 Secure Storage**: Passwords are hashed before storage and account credentials are encrypted
-- **🔄 Auto-dependency Installation**: Automatically installs required dependencies on first run
-- **💾 Backup System**: Create, manage and restore from encrypted backups
-- **⏰ Password Expiration**: Enforce regular password changes
-- **👤 User Sessions**: Better session management with automatic logout
+- **User Authentication**: Login and signup system with secure password storage
+- **Role-Based Access Control**: Admins manage accounts, users can select/purchase them
+- **Account Management**: Admin panel for creating, viewing, editing, and deleting accounts
+- **User Selection**: Users can browse and select accounts to view (read-only access)
+- **Password Analysis & Generation**: Analyze password strength and generate secure passwords
+- **Account Categories & Tags**: Organize accounts by categories and custom tags
+- **Import/Export**: Import and export accounts in JSON, CSV, and text formats
+- **Theme Customization**: Choose from multiple visual themes for the interface
+- **Statistics Dashboard**: View analytics on password strength, categories, and more
+- **Modern UI Interface**: User-friendly interface with clear visual feedback
+- **Secure Storage**: Passwords are hashed before storage and account credentials are encrypted
+- **Auto-dependency Installation**: Automatically installs required dependencies on first run
+- **Backup System**: Create, manage and restore from encrypted backups
+- **Password Expiration**: Enforce regular password changes
+- **User Sessions**: Better session management with automatic logout
+- **Secure Key Management**: Encryption key derived from a master password set on first run
+- **Logging**: Application events and errors logged to `app_data/app.log`
+- **Unit Tested**: Core data storage logic includes automated tests (`pytest`)
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Access Control](#-access-control)
-- [Advanced Features](#-advanced-features)
-- [Data Storage](#-data-storage)
-- [Security Notes](#-security-notes)
-- [Testing](#-testing)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Access Control](#access-control)
+- [Advanced Features](#advanced-features)
+- [Data Storage](#data-storage)
+- [Security Notes](#security-notes)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [License](#license)
 
-## 📥 Installation
+## Installation
 
 1. Make sure you have Python 3.8+ installed
 2. Clone this repository:
@@ -80,17 +81,16 @@ This beta release includes significant security enhancements, backup functionali
    python account_selector.py
    ```
 
-## 🚀 Usage
+## Usage
 
 ### Default Admin Account
 
-When first run, the application automatically creates an admin account:
-- Username: `admin`
-- Password: `Admin@SecureP@ss123!`
+On the first run, if no users exist, the application will prompt you to create an initial admin account.
+You will need to provide a username and a secure password.
 
-**IMPORTANT:** *It is strongly recommended to change this password immediately after the first login for security purposes.*
+**IMPORTANT:** _You must choose a strong password for the initial admin account._
 
-### 📱 User Interface
+### User Interface
 
 <details>
 <summary>Authentication Menu</summary>
@@ -119,12 +119,12 @@ When first run, the application automatically creates an admin account:
 
 - Browse Available Accounts - View and select accounts with read-only access
 - View My Selected Accounts - View selected account credentials (read-only)
-- Change Theme - Select from various visual themes  
+- Change Theme - Select from various visual themes
 - Change Password - Update your user password
 - Logout
 </details>
 
-## 🔐 Access Control
+## Access Control
 
 - **Administrators** have full access to create, read, update, and delete accounts and users
 - **Regular Users** can only:
@@ -134,7 +134,7 @@ When first run, the application automatically creates an admin account:
   - Change their own user password
   - Cannot modify any account credentials
 
-## 🌟 Advanced Features
+## Advanced Features
 
 <details>
 <summary>Password Management</summary>
@@ -175,36 +175,52 @@ When first run, the application automatically creates an admin account:
 - **User Settings**: Personalized settings for each user
 </details>
 
-## 💾 Data Storage
+## Data Storage
 
 Account data is stored in JSON files in the `app_data` directory:
-- `users.json`: Contains user account information with hashed passwords
-- `accounts.json`: Contains encrypted stored credentials
-- `key.bin`: Contains encryption key for the accounts (protect this file!)
 
-## 🔒 Security Notes
+- `users.json`: Contains user account information with hashed passwords
+- `accounts.json`: Contains encrypted stored account credentials
+- `key.bin`: Contains the salt and the encrypted master key derived from the master password provided during setup. **Losing this file or forgetting the master password will result in permanent loss of access to encrypted account data.**
+- `config.json`: Stores application settings like password policies and backup configuration
+
+## Security Notes
 
 This application stores sensitive information. For maximum security:
 
-1. Restricting access to the computer running this application
-2. Using this application only on trusted devices
-3. Regularly backing up your credentials using the built-in backup system
-4. Protecting access to the key.bin file and backup files
-5. Following the password policy recommendations
-6. Changing passwords regularly (the application will enforce this)
-7. Logging out when not using the application (auto-logout will help with this)
+1. Restrict access to the computer running this application
+2. Use this application only on trusted devices
+3. **Set a strong, unique Master Password** during the initial setup. This password is used to protect your encryption key.
+4. **Protect the `key.bin` file** located in the `app_data` directory. Do not delete or modify it manually.
+5. **Regularly back up your data** using the built-in backup system. Store backups securely, especially if they are unencrypted.
+6. Follow the password policy recommendations enforced by the application.
+7. Change passwords regularly.
+8. Log out when not using the application.
 
-## 🧪 Testing Auto-Install
+### Emergency Key Regeneration
+
+If the master password is forgotten AND backups are unavailable, the `_regenerate_encryption_key.py` script can be run (`python _regenerate_encryption_key.py`). **WARNING:** This is a destructive operation. It will prompt for a _new_ master password and generate a _new_ encryption key, making all previously encrypted account data **permanently inaccessible**. Use with extreme caution as a last resort.
+
+## Testing
 
 To test the automatic dependency installation:
 
 1. Run `python uninstall_deps.py` to uninstall dependencies
 2. Run `python account_selector.py` to see the auto-install in action
 
-## 👥 Contributing
+### Running Unit Tests
+
+Install development dependencies and run tests:
+
+```bash
+pip install -r requirements.txt
+python -m pytest
+```
+
+## Contributing
 
 Contributions are welcome! Please check out our [Contributing Guidelines](CONTRIBUTING.md) for details on how to submit contributions to this project.
 
-## 📃 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

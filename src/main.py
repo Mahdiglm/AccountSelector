@@ -22,12 +22,16 @@ from src.utils.export import (
 from src.utils.themes import get_available_themes
 import questionary  # Keep the direct import for now
 
+# Get the logger configured in account_selector.py
+import logging
+logger = logging.getLogger(__name__) # Use module-specific logger
+
 
 class AccountSelectorApp:
     def __init__(self):
         self.storage = Storage()
         self.current_user: Optional[User] = None
-        self.selected_accounts = []  # To track accounts selected/purchased by users
+        # self.selected_accounts = []  # To track accounts selected/purchased by users
     
     def start(self):
         """Start the application."""
@@ -87,6 +91,7 @@ class AccountSelectorApp:
         
         if not form_data.get("username") or not form_data.get("password"):
             print_error("Username and password are required.")
+            logger.warning("Login attempt failed: Missing username or password.")
             ask_to_continue()
             return True
         
@@ -99,11 +104,21 @@ class AccountSelectorApp:
         
         if user:
             self.current_user = user
+            # Load selected accounts from user data
+            self.selected_accounts = [
+                self.storage.get_account(acc_id) 
+                for acc_id in self.current_user.selected_account_ids 
+                if self.storage.get_account(acc_id) is not None
+            ]
+            # Convert loaded accounts to dicts for consistency with previous logic
+            self.selected_accounts = [acc.model_dump() for acc in self.selected_accounts]
+            
             print_success(f"Welcome back, {user.username}!")
             ask_to_continue()
             return True
         else:
             print_error("Invalid username or password.")
+            logger.warning(f"Login attempt failed for user '{form_data['username']}'.")
             ask_to_continue()
             return True
     
@@ -121,17 +136,20 @@ class AccountSelectorApp:
         
         if not form_data.get("username") or not form_data.get("password"):
             print_error("Username and password are required.")
+            logger.warning("Signup attempt failed: Missing username or password.")
             ask_to_continue()
             return True
         
         if form_data["password"] != form_data["password_confirm"]:
             print_error("Passwords do not match.")
+            logger.warning("Signup attempt failed: Passwords do not match.")
             ask_to_continue()
             return True
         
         # Check if username already exists
         if self.storage.get_user(form_data["username"]):
             print_error(f"Username '{form_data['username']}' is already taken.")
+            logger.warning(f"Signup attempt failed: Username '{form_data['username']}' already exists.")
             ask_to_continue()
             return True
         
@@ -152,6 +170,7 @@ class AccountSelectorApp:
             return True
         except Exception as e:
             print_error(f"Error creating account: {str(e)}")
+            logger.error(f"Error during signup for username '{form_data.get('username', 'N/A')}': {e}", exc_info=True)
             ask_to_continue()
             return True
     
@@ -202,7 +221,8 @@ class AccountSelectorApp:
         else:
             # Filter out accounts already selected by this user
             all_accounts = self.storage.get_accounts()
-            selected_account_ids = [acc["id"] for acc in self.selected_accounts]
+            # Use the persisted list from the current user object
+            selected_account_ids = self.current_user.selected_account_ids
             accounts = [acc for acc in all_accounts if acc.id not in selected_account_ids]
             title = "Available Accounts (Read-only Access)"
             print_header(title)
@@ -243,6 +263,7 @@ class AccountSelectorApp:
         
         if not account:
             print_error("Account not found.")
+            logger.error(f"Attempted to select non-existent account ID: {account_id}")
             return
         
         # Confirm selection
@@ -251,6 +272,22 @@ class AccountSelectorApp:
             
             # Add to selected accounts
             self.selected_accounts.append(account.model_dump())
+            
+            # Also add to the user's persistent list
+            if account.id not in self.current_user.selected_account_ids:
+                self.current_user.selected_account_ids.append(account.id)
+                # Persist the change immediately
+                try:
+                    self.storage.update_user(username=self.current_user.username, 
+                                              selected_account_ids=self.current_user.selected_account_ids)
+                except Exception as e:
+                    print_error(f"Error saving selection: {e}")
+                    logger.error(f"Failed to save account selection (ID: {account.id}) for user {self.current_user.username}: {e}", exc_info=True)
+                    # Optionally revert local change if save fails?
+                    self.current_user.selected_account_ids.pop() 
+                    # Let user know save failed
+                    ask_to_continue()
+                    return # Abort showing details if save failed
             
             print_success(f"You have successfully selected '{account.name}'!")
             
@@ -264,12 +301,32 @@ class AccountSelectorApp:
         """View accounts selected/purchased by the user (read-only)."""
         print_header("My Selected Accounts (Read-only)")
         
-        if not self.selected_accounts:
+        if not self.current_user or not self.current_user.selected_account_ids:
             print_info("You haven't selected any accounts yet.")
             ask_to_continue()
             return True
         
-        display_accounts_table(self.selected_accounts, show_credentials=True)
+        # Fetch account details based on stored IDs
+        selected_accounts_details = []
+        missing_ids = []
+        for acc_id in self.current_user.selected_account_ids:
+            account = self.storage.get_account(acc_id)
+            if account:
+                selected_accounts_details.append(account.model_dump())
+            else:
+                missing_ids.append(acc_id)
+        
+        if missing_ids:
+             print_warning(f"Warning: Could not find details for some selected account IDs: {', '.join(missing_ids)}")
+             logger.warning(f"Could not find account details for IDs: {missing_ids} for user {self.current_user.username}")
+             # Optionally offer to clean up the list?
+             
+        if not selected_accounts_details:
+             print_info("Could not retrieve details for any selected accounts.")
+             ask_to_continue()
+             return True
+             
+        display_accounts_table(selected_accounts_details, show_credentials=True)
         print_info("Note: These credentials are for viewing only and cannot be modified.")
         
         ask_to_continue()
@@ -350,6 +407,7 @@ class AccountSelectorApp:
         
         if not form_data.get("name") or not form_data.get("username") or not form_data.get("password"):
             print_error("Account name, username, and password are required.")
+            logger.warning("Add account attempt failed: Missing required fields.")
             ask_to_continue()
             return True
         
@@ -419,6 +477,7 @@ class AccountSelectorApp:
                     expiry_date = datetime.strptime(expiry_input, "%Y-%m-%d")
             except ValueError:
                 print_error("Invalid date format. Using no expiry date.")
+                logger.warning(f"Invalid expiry date format entered: '{expiry_input}'")
                 expiry_date = None
         
         display_spinner("Adding account...", 0.5)
@@ -442,6 +501,7 @@ class AccountSelectorApp:
             return True
         except Exception as e:
             print_error(f"Error adding account: {str(e)}")
+            logger.error(f"Error adding account '{form_data.get('name', 'N/A')}': {e}", exc_info=True)
             ask_to_continue()
             return True
     
@@ -555,8 +615,10 @@ class AccountSelectorApp:
         try:
             filepath = export_to_json(account_dicts, filename)
             print_success(f"Successfully exported {len(account_dicts)} accounts to {filepath}")
+            logger.info(f"Exported {len(account_dicts)} accounts to JSON: {filepath}")
         except Exception as e:
             print_error(f"Export failed: {str(e)}")
+            logger.error(f"JSON export failed for file '{filename}': {e}", exc_info=True)
         
         ask_to_continue()
         return True
@@ -593,8 +655,10 @@ class AccountSelectorApp:
         try:
             filepath = export_to_csv(account_dicts, filename)
             print_success(f"Successfully exported {len(account_dicts)} accounts to {filepath}")
+            logger.info(f"Exported {len(account_dicts)} accounts to CSV: {filepath}")
         except Exception as e:
             print_error(f"Export failed: {str(e)}")
+            logger.error(f"CSV export failed for file '{filename}': {e}", exc_info=True)
         
         ask_to_continue()
         return True
@@ -631,9 +695,11 @@ class AccountSelectorApp:
             for account_data in imported_accounts:
                 self.storage.create_account_from_dict(account_data)
             
-            print_success("Accounts added to database")
+            print_success(f"Accounts added to database from {filename}")
+            logger.info(f"Completed JSON import from '{filename}'. Imported {len(imported_accounts)} accounts.")
         except Exception as e:
             print_error(f"Import failed: {str(e)}")
+            logger.error(f"JSON import failed for file '{filename}': {e}", exc_info=True)
         
         ask_to_continue()
         return True
@@ -670,9 +736,11 @@ class AccountSelectorApp:
             for account_data in imported_accounts:
                 self.storage.create_account_from_dict(account_data)
             
-            print_success("Accounts added to database")
+            print_success(f"Accounts added to database from {filename}")
+            logger.info(f"Completed CSV import from '{filename}'. Imported {len(imported_accounts)} accounts.")
         except Exception as e:
             print_error(f"Import failed: {str(e)}")
+            logger.error(f"CSV import failed for file '{filename}': {e}", exc_info=True)
         
         ask_to_continue()
         return True
@@ -709,9 +777,11 @@ class AccountSelectorApp:
             for account_data in imported_accounts:
                 self.storage.create_account_from_dict(account_data)
             
-            print_success("Accounts added to database")
+            print_success(f"Accounts added to database from {filename}")
+            logger.info(f"Completed Text import from '{filename}'. Imported {len(imported_accounts)} accounts.")
         except Exception as e:
             print_error(f"Import failed: {str(e)}")
+            logger.error(f"Text import failed for file '{filename}': {e}", exc_info=True)
         
         ask_to_continue()
         return True
@@ -757,6 +827,7 @@ class AccountSelectorApp:
         
         if not account:
             print_error("Account not found.")
+            logger.error(f"Attempted to manage non-existent account ID: {account_id}")
             ask_to_continue()
             return True
         
@@ -800,6 +871,7 @@ class AccountSelectorApp:
         
         if not form_data.get("name") or not form_data.get("username"):
             print_error("Account name and username are required.")
+            logger.warning(f"Edit account failed for ID {account.id}: Missing name or username.")
             ask_to_continue()
             return True
         
@@ -835,6 +907,7 @@ class AccountSelectorApp:
             return True
         except Exception as e:
             print_error(f"Error updating account: {str(e)}")
+            logger.error(f"Error updating account ID {account.id}: {e}", exc_info=True)
             ask_to_continue()
             return True
     
@@ -866,6 +939,7 @@ class AccountSelectorApp:
             return False  # Return to account list
         except Exception as e:
             print_error(f"Error deleting account: {str(e)}")
+            logger.error(f"Error deleting account ID {account.id}: {e}", exc_info=True)
             ask_to_continue()
             return True
     
@@ -889,28 +963,36 @@ class AccountSelectorApp:
         
         if not user:
             print_error("Current password is incorrect.")
+            logger.warning(f"Password change failed for user {self.current_user.username}: Incorrect current password.")
             ask_to_continue()
             return True
         
         # Check if new passwords match
         if form_data["new_password"] != form_data["confirm_password"]:
             print_error("New passwords do not match.")
+            logger.warning(f"Password change failed for user {self.current_user.username}: New passwords do not match.")
             ask_to_continue()
             return True
         
         # Update password
         display_spinner("Updating password...", 0.5)
         
-        updated_user = self.storage.update_user(
-            username=self.current_user.username,
-            new_password=form_data["new_password"]
-        )
-        
-        if updated_user:
-            self.current_user = updated_user
-            print_success("Password updated successfully!")
-        else:
-            print_error("Failed to update password.")
+        try:
+            updated_user = self.storage.update_user(
+                username=self.current_user.username,
+                new_password=form_data["new_password"]
+            )
+            
+            if updated_user:
+                self.current_user = updated_user
+                print_success("Password updated successfully!")
+            else:
+                # This case might indicate an unexpected issue if no exception was raised
+                print_error("Failed to update password (no exception).")
+                logger.error(f"Admin password update returned None without exception for user '{self.current_user.username}'")
+        except Exception as e:
+            print_error(f"Error updating password: {str(e)}")
+            logger.error(f"Admin failed to update password for user '{self.current_user.username}': {e}", exc_info=True)
         
         ask_to_continue()
         return True
@@ -926,7 +1008,7 @@ class AccountSelectorApp:
             print_header("Manage Users")
             
             # Get all users
-            all_users = self.storage._load_users()
+            all_users = self.storage.get_users()
             
             # Convert to dicts for display
             user_dicts = [user.model_dump() for user in all_users]
@@ -962,12 +1044,14 @@ class AccountSelectorApp:
         
         if not form_data.get("username") or not form_data.get("password"):
             print_error("Username and password are required.")
+            logger.warning("Admin add user failed: Missing username or password.")
             ask_to_continue()
             return True
         
         # Check if username already exists
         if self.storage.get_user(form_data["username"]):
             print_error(f"Username '{form_data['username']}' is already taken.")
+            logger.warning(f"Admin add user failed: Username '{form_data['username']}' already exists.")
             ask_to_continue()
             return True
         
@@ -985,6 +1069,7 @@ class AccountSelectorApp:
             return True
         except Exception as e:
             print_error(f"Error creating user: {str(e)}")
+            logger.error(f"Admin failed to create user '{form_data.get('username', 'N/A')}': {e}", exc_info=True)
             ask_to_continue()
             return True
     
@@ -993,7 +1078,7 @@ class AccountSelectorApp:
         print_header("Edit User")
         
         # Get all users
-        all_users = self.storage._load_users()
+        all_users = self.storage.get_users()
         
         # Create selection options excluding current admin
         user_choices = {user.username: user for user in all_users 
@@ -1039,27 +1124,35 @@ class AccountSelectorApp:
         
         if not form_data.get("new_password"):
             print_error("Password is required.")
+            logger.warning(f"Admin change password failed for user '{user.username}': No password provided.")
             ask_to_continue()
             return True
         
         # Check if new passwords match
         if form_data["new_password"] != form_data["confirm_password"]:
             print_error("Passwords do not match.")
+            logger.warning(f"Admin change password failed for user '{user.username}': Passwords do not match.")
             ask_to_continue()
             return True
         
         # Update password
         display_spinner("Updating password...", 0.5)
         
-        updated_user = self.storage.update_user(
-            username=user.username,
-            new_password=form_data["new_password"]
-        )
-        
-        if updated_user:
-            print_success(f"Password for '{user.username}' updated successfully!")
-        else:
-            print_error("Failed to update password.")
+        try:
+            updated_user = self.storage.update_user(
+                username=user.username,
+                new_password=form_data["new_password"]
+            )
+            
+            if updated_user:
+                print_success(f"Password for '{user.username}' updated successfully!")
+            else:
+                # This case might indicate an unexpected issue if no exception was raised
+                print_error("Failed to update password (no exception).")
+                logger.error(f"Admin password update returned None without exception for user '{user.username}'")
+        except Exception as e:
+            print_error(f"Error updating password: {str(e)}")
+            logger.error(f"Admin failed to update password for user '{user.username}': {e}", exc_info=True)
         
         ask_to_continue()
         return True
@@ -1092,6 +1185,7 @@ class AccountSelectorApp:
             print_success(f"Role for '{user.username}' updated to '{new_role}' successfully!")
         else:
             print_error("Failed to update role.")
+            logger.error(f"Admin role update returned None for user '{user.username}'")
         
         ask_to_continue()
         return True
@@ -1101,7 +1195,7 @@ class AccountSelectorApp:
         print_header("Delete User")
         
         # Get all users
-        all_users = self.storage._load_users()
+        all_users = self.storage.get_users()
         
         # Create selection options excluding current admin
         user_choices = {user.username: user for user in all_users 
@@ -1137,16 +1231,7 @@ class AccountSelectorApp:
             print_success(f"User '{user.username}' and all their accounts deleted successfully!")
         else:
             print_error("Failed to delete user.")
+            logger.error(f"Admin user deletion failed for user '{user.username}'")
         
         ask_to_continue()
-        return True
-
-
-if __name__ == "__main__":
-    app = AccountSelectorApp()
-    try:
-        app.start()
-    except KeyboardInterrupt:
-        print_header("Goodbye!")
-        print_info("Thank you for using Account Selector!")
-        sys.exit(0) 
+        return True 

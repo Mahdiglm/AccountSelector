@@ -1,0 +1,132 @@
+warning: in the working copy of 'account_selector.py', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/CHANGELOG.md b/CHANGELOG.md[m
+[1mindex 90237d5..7e81d77 100644[m
+[1m--- a/CHANGELOG.md[m
+[1m+++ b/CHANGELOG.md[m
+[36m@@ -5,6 +5,34 @@[m [mAll notable changes to this project will be documented in this file.[m
+ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),[m
+ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).[m
+ [m
+[32m+[m[32m## [Unreleased][m
+[32m+[m
+[32m+[m[32m### Security[m
+[32m+[m[32m- Removed hardcoded default master password for encryption key generation in `src/data/storage.py`.[m
+[32m+[m[32m- Removed hardcoded default admin password in `src/data/storage.py`. Application now prompts for initial admin credentials on first run.[m
+[32m+[m[32m- Removed flawed key check value logic from key generation/loading in `fix_key.py` and `src/data/storage.py`.[m
+[32m+[m[32m- `_save_accounts` in `src/data/storage.py` now raises an error if password encryption fails, preventing plaintext passwords from being saved.[m
+[32m+[m[32m- `fix_key.py` now prompts securely for a master password instead of using a hardcoded one, includes warnings, and has basic error handling.[m
+[32m+[m
+[32m+[m[32m### Fixed[m
+[32m+[m[32m- Updated `requirements.txt` to include missing `typer` and `questionary` packages.[m
+[32m+[m[32m- Ensured password history policy is consistently checked and updated in `src/data/storage.py`'s `update_user` method.[m
+[32m+[m[32m- `create_account_from_dict` in `src/data/storage.py` now checks for existing account IDs and skips duplicates during import.[m
+[32m+[m[32m- Refined exception handling in `src/data/storage.py` to use more specific exception types instead of generic `Exception`.[m
+[32m+[m[32m- Calls to private `_load_users` in `src/main.py` replaced with calls to public `get_users`.[m
+[32m+[m[32m- Fixed potential issue where backup creation failed silently in `src/data/storage.py`.[m
+[32m+[m
+[32m+[m[32m### Added[m
+[32m+[m[32m- Added persistence for user-selected accounts (stored in `User.selected_account_ids` field).[m
+[32m+[m[32m- Added public `get_users()` method to `src/data/storage.py` for better encapsulation.[m
+[32m+[m[32m- Added structured logging to file (`app_data/app.log`) and console using Python's `logging` module.[m
+[32m+[m[32m- Added initial unit tests using `pytest` for `src/data/storage.py`, covering initialization, auth, password history, CRUD, encryption, and backup/restore.[m
+[32m+[m
+[32m+[m[32m### Removed[m
+[32m+[m[32m- Removed unused session management code (fields `session_token`, `session_expires`, `last_activity` from `User` model; methods `authenticate`, `verify_password`, `update_user_session`, `check_session_expired`, `check_session_idle`, `logout_user` from `storage.py`; `UserSession` class from `models.py`).[m
+[32m+[m[32m- Removed redundant `if __name__ == "__main__":` block from `src/main.py`.[m
+[32m+[m[32m- Removed `auto_logout_minutes` from default config as session logic was removed.[m
+[32m+[m
+ ## [1.1.0-beta.1] - 2023-12-16[m
+ [m
+ ### Fixed[m
+[36m@@ -73,4 +101,9 @@[m [mand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0[m
+ ### Security[m
+ - Passwords for user accounts are hashed with bcrypt[m
+ - Account credentials are encrypted with Fernet symmetric encryption[m
+[31m-- Security warnings and best practices in the UI [m
+\ No newline at end of file[m
+[32m+[m[32m- Security warnings and best practices in the UI[m
+[32m+[m
+[32m+[m[32m### Fixed[m
+[32m+[m[32m- Updated `requirements.txt` to include missing `typer` and `questionary` packages.[m
+[32m+[m[32m- Ensured password history policy is consistently checked and updated in `src/data/storage.py`'s `update_user` method.[m
+[32m+[m[32m- Renamed `fix_key.py` to `_regenerate_encryption_key.py` and significantly enhanced warnings about data loss risk.[m[41m [m
+\ No newline at end of file[m
+[1mdiff --git a/CONTRIBUTING.md b/CONTRIBUTING.md[m
+[1mindex fc03c9b..507ff79 100644[m
+[1m--- a/CONTRIBUTING.md[m
+[1m+++ b/CONTRIBUTING.md[m
+[36m@@ -30,23 +30,25 @@[m [mFor feature requests, please create an issue with:[m
+ 1. Fork the repository[m
+ 2. Create a new branch (`git checkout -b feature/your-feature`)[m
+ 3. Make your changes[m
+[31m-4. Run tests if available[m
+[31m-5. Commit your changes (`git commit -m 'Add some feature'`)[m
+[31m-6. Push to the branch (`git push origin feature/your-feature`)[m
+[31m-7. Create a Pull Request[m
+[32m+[m[32m4. Add tests for new features or bug fixes.[m
+[32m+[m[32m5. Ensure all tests pass by running `python -m pytest` in the root directory.[m
+[32m+[m[32m6. Commit your changes (`git commit -m 'Add some feature'`)[m
+[32m+[m[32m7. Push to the branch (`git push origin feature/your-feature`)[m
+[32m+[m[32m8. Create a Pull Request[m
+ [m
+ ## Development Setup[m
+ [m
+ 1. Clone the repository[m
+ 2. Install dependencies: `pip install -r requirements.txt`[m
+ 3. Run the application with `python account_selector.py`[m
+[32m+[m[32m4. Run tests with `python -m pytest`[m
+ [m
+ ## Coding Guidelines[m
+ [m
+ - Follow PEP 8 style guidelines[m
+ - Add appropriate comments[m
+ - Write descriptive commit messages[m
+[31m-- Add tests for new features when possible[m
+[32m+[m[32m- Ensure tests pass before submitting changes[m
+ [m
+ ## License[m
+ [m
+[1mdiff --git a/README.md b/README.md[m
+[1mindex b3496cf..489c681 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -54,6 +54,9 @@[m [mThis beta release includes significant security enhancements, backup functionali[m
+ - **💾 Backup System**: Create, manage and restore from encrypted backups[m
+ - **⏰ Password Expiration**: Enforce regular password changes[m
+ - **👤 User Sessions**: Better session management with automatic logout[m
+[32m+[m[32m- **🔐 Secure Key Management**: Encryption key derived from a master password set on first run.[m
+[32m+[m[32m- **📝 Logging**: Application events and errors logged to `app_data/app.log`.[m
+[32m+[m[32m- **✅ Unit Tested**: Core data storage logic includes automated tests (`pytest`).[m
+ [m
+ ## 📋 Table of Contents[m
+ [m
+[36m@@ -84,11 +87,10 @@[m [mThis beta release includes significant security enhancements, backup functionali[m
+ [m
+ ### Default Admin Account[m
+ [m
+[31m-When first run, the application automatically creates an admin account:[m
+[31m-- Username: `admin`[m
+[31m-- Password: `Admin@SecureP@ss123!`[m
+[32m+[m[32mOn the first run, if no users exist, the application will prompt you to create an initial admin account.[m
+[32m+[m[32mYou will need to provide a username and a secure password.[m
+ [m
+[31m-**IMPORTANT:** *It is strongly recommended to change this password immediately after the first login for security purposes.*[m
+[32m+[m[32m**IMPORTANT:** *You must choose a strong password for the initial admin account.*[m
+ [m
+ ### 📱 User Interface[m
+ [m
+[36m@@ -179,8 +181,9 @@[m [mWhen first run, the application automatically creates an admin account:[m
+ [m
+ Account data is stored in JSON files in the `app_data` directory:[m
+ - `users.json`: Contains user account information with hashed passwords[m
+[31m-- `accounts.json`: Contains encrypted stored credentials[m
+[31m-- `key.bin`: Contains encryption key for the accounts (protect this file!)[m
+[32m+[m[32m- `accounts.json`: Contains encrypted stored account credentials.[m
+[32m+[m[32m- `key.bin`: Contains the salt and the encrypted master key derived from the master password provided during setup. **Losing this file or forgetting the master password will result in permanent loss of access to encrypted account data.**[m
+[32m+[m[32m- `config.json`: Stores application settings like password policies and backup configuration.[m
+ [m
+ ## 🔒 Security Notes[m
+ [m
+[36m@@ -188,11 +191,15 @@[m [mThis application stores sensitive information. For maximum security:[m
+ [m
+ 1. Restricting access to the co

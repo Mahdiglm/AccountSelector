@@ -163,14 +163,16 @@ class PasswordChangeDialog(QDialog):
         current_password = self.current_password.text()
         new_password = self.new_password.text()
         
-        # Verify current password
-        if not self.storage.verify_password(self.user.username, current_password):
+        # Use authenticate_user to verify current password
+        if not self.storage.authenticate_user(self.user.username, current_password):
             QMessageBox.critical(self, "Error", "Current password is incorrect")
             return
         
         try:
-            # Change password
-            success = self.storage.change_password(self.user.username, new_password)
+            # Use update_user which handles policy and history correctly
+            updated_user = self.storage.update_user(username=self.user.username, new_password=new_password)
+            success = updated_user is not None
+            
             if success:
                 QMessageBox.information(self, "Success", "Password changed successfully")
                 super().accept()
@@ -268,8 +270,8 @@ class RegisterDialog(QDialog):
             self.username_label.setText("Username cannot contain spaces")
             return False
         
-        # Check if username exists
-        if self.storage.user_exists(username):
+        # Use get_user to check if user exists
+        if self.storage.get_user(username):
             self.username_label.setText("Username already exists")
             return False
         
@@ -355,8 +357,12 @@ class RegisterDialog(QDialog):
         fullname = self.fullname_input.text()
         
         try:
-            # Register new user
-            success = self.storage.register_user(username, password, fullname)
+            # Use create_user instead of register_user
+            # Note: create_user doesn't take fullname, we could add it or ignore it here.
+            # Let's ignore fullname for now to match create_user signature.
+            # TODO: Consider adding fullname to User model and create_user if needed.
+            new_user = self.storage.create_user(username, password) # Role defaults to USER
+            success = new_user is not None
             
             if success:
                 QMessageBox.information(self, "Success", "User registered successfully. You can now log in.")
@@ -459,8 +465,8 @@ class LoginWidget(QWidget):
             return
         
         try:
-            # Attempt to authenticate
-            user = self.storage.authenticate(username, password)
+            # Use authenticate_user instead of the removed authenticate method
+            user = self.storage.authenticate_user(username, password)
             
             if user:
                 # Save username if remember checked
