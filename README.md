@@ -9,14 +9,15 @@
 
 Account Selector is a secure desktop application for managing and organizing account credentials with enhanced security features.
 
-## Version 1.2.3-beta
+## Version 1.2.7-beta
 
-This maintenance release includes critical fixes for encryption key handling:
+This release includes comprehensive testing improvements for backup/restore functionality:
 
-- **Fixed 33-byte Key Issue**: Resolved critical startup error affecting some installations
-- **Automatic Key Repair**: Implemented automatic truncation for oversized encryption keys
-- **Enhanced Validation**: Improved key format validation with better error reporting
-- **Startup Reliability**: Ensured application starts successfully across different environments
+- **Enhanced Test Coverage**: Added extensive unit tests for backup and restore operations
+- **Automated Backup Testing**: Tests for auto-backup and backup rotation mechanisms
+- **Edge Case Validation**: Improved testing for error scenarios and metadata integrity
+- **Security Validation**: Better testing of encrypted backup security features
+- **Previous Fixes**: Includes all fixes from previous releases (encryption error messages and 33-byte key handling)
 
 ```
  █████╗  ██████╗ ██████╗ ██████╗ ██╗   ██╗███╗   ██╗████████╗
@@ -34,6 +35,8 @@ This maintenance release includes critical fixes for encryption key handling:
 ```
 
 </div>
+
+<div align="center">
 
 ## Features
 
@@ -54,7 +57,7 @@ This maintenance release includes critical fixes for encryption key handling:
 - **User Sessions**: Better session management with automatic logout
 - **Secure Key Management**: Encryption key derived from a master password set on first run
 - **Logging**: Application events and errors logged to `app_data/app.log`
-- **Unit Tested**: Core data storage logic includes automated tests (`pytest`)
+- **Unit Tested**: Core data storage and backup/restore logic includes automated tests (`pytest`)
 
 ## Table of Contents
 
@@ -165,6 +168,7 @@ You will need to provide a username and a secure password.
 - **Scheduled Backups**: Configure automatic backups on a schedule
 - **Backup Rotation**: Automatically manage backup retention
 - **Backup Encryption**: Secure backups with encryption
+- **Backup Testing**: Extensively tested backup and restore functionality
 </details>
 
 <details>
@@ -234,3 +238,5 @@ Contributions are welcome! Please check out our [Contributing Guidelines](CONTRI
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+</div>
