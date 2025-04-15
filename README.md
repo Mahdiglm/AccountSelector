@@ -1,6 +1,5 @@
-# Account Selector
-
 <div align="center">
+# Account Selector
 
 ![License](https://img.shields.io/github/license/Mahdiglm/AccountSelector)
 ![Version](https://img.shields.io/github/v/release/Mahdiglm/AccountSelector?include_prereleases)
