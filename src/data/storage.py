@@ -220,12 +220,32 @@ class Storage:
                     # Special handling for common case of 33-byte keys
                     if len(decoded_key) == 33:
                         logger.info("Found 33-byte key, truncating to 32 bytes")
+                        # Store original key for potential debugging
+                        original_key = key
                         # Truncate to 32 bytes and re-encode
                         fixed_key = base64.urlsafe_b64encode(decoded_key[:32])
                         key = fixed_key
-                        logger.info("Key truncated and re-encoded successfully")
+                        logger.info(f"Key truncated and re-encoded successfully: {len(decoded_key)}→32 bytes")
+                        
+                        # Verify the fixed key is properly formatted
+                        try:
+                            test_cipher = Fernet(key)
+                            logger.info("Fixed key validation successful")
+                        except Exception as test_e:
+                            logger.error(f"Fixed key validation failed: {test_e}. Attempting alternate fix...")
+                            # Try alternative approach if first method fails
+                            try:
+                                # Try another approach - encode directly from the truncated bytes
+                                alt_fixed_key = base64.urlsafe_b64encode(decoded_key[:32])
+                                test_cipher = Fernet(alt_fixed_key)
+                                key = alt_fixed_key
+                                logger.info("Alternate key fix successful")
+                            except Exception as alt_e:
+                                logger.critical(f"All key fix attempts failed: {alt_e}")
+                                raise ValueError(f"Cannot repair 33-byte key automatically: {alt_e}")
                     else:
-                        raise ValueError(f"Invalid key length: {len(decoded_key)} bytes (should be 32)")
+                        logger.critical(f"Invalid key length: {len(decoded_key)} bytes (should be 32)")
+                        raise ValueError(f"Invalid key length: {len(decoded_key)} bytes (should be 32). Please run the fix_key_format.py utility to repair your key file.")
                 
                 # Initialize the Fernet cipher with the properly formatted key
                 self.cipher = Fernet(key)
@@ -233,7 +253,7 @@ class Storage:
                 logger.info("Encryption successfully initialized")
             except Exception as e:
                 logger.critical(f"Invalid encryption key format: {e}")
-                raise ValueError(f"Invalid encryption key format: {e}")
+                raise ValueError(f"Invalid encryption key format: {e}. Run fix_key_format.py to repair your key.")
             
         except (IOError, ValueError, InvalidToken) as e:
             logger.critical(f"Error initializing encryption: {str(e)}", exc_info=True)

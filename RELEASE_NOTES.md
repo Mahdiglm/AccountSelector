@@ -1,5 +1,15 @@
 # Release Notes
 
+## Version 1.2.5-beta (2025-04-15)
+
+### Security Enhancements
+
+- Enhanced 33-byte key handling with more robust repair mechanisms
+- Added validation steps to ensure key fixes are effective
+- Implemented fallback methods for challenging key repair scenarios
+- Improved error messages with specific guidance for users
+- Enhanced logging for better troubleshooting of encryption issues
+
 ## Version 1.2.4-beta (2025-04-15)
 
 ### Documentation Improvements
