@@ -1,5 +1,22 @@
 # Release Notes
 
+## Version 1.2.6-beta (2025-04-15)
+
+### User Experience Improvements
+
+- Implemented more descriptive error messages for encryption failures
+- Added practical guidance in error messages to help users resolve issues
+- Enhanced error reporting with specific troubleshooting steps
+- Improved feedback when encountering decryption problems
+- Added detailed tracking and reporting of decryption failures
+
+### Security Enhancements
+
+- Added better validation and error reporting for backup encryption/decryption
+- Improved error handling for invalid encryption keys
+- Enhanced protection against saving unencrypted sensitive data
+- Added comprehensive logging for encryption-related issues
+
 ## Version 1.2.5-beta (2025-04-15)
 
 ### Security Enhancements

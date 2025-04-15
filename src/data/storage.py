@@ -264,24 +264,24 @@ class Storage:
     def _encrypt_password(self, password: str) -> str:
         """Encrypt a password."""
         if not self.encryption_initialized:
-            raise RuntimeError("Encryption not initialized")
+            raise RuntimeError("Encryption not initialized. Please ensure the application has access to the encryption key file.")
         
         try:
             return self.cipher.encrypt(password.encode()).decode()
         except (TypeError, ValueError) as e: # Catch potential encoding/type errors
-            raise RuntimeError(f"Error encrypting password: {str(e)}")
+            raise RuntimeError(f"Error encrypting password: {str(e)}. This may be due to an invalid character in the password or an issue with the encryption key.")
     
     def _decrypt_password(self, encrypted_password: str) -> str:
         """Decrypt an encrypted password."""
         if not self.encryption_initialized:
-            raise RuntimeError("Encryption not initialized")
+            raise RuntimeError("Encryption not initialized. Please ensure the application has access to the encryption key file.")
         
         try:
             return self.cipher.decrypt(encrypted_password.encode()).decode()
         except InvalidToken:
-            raise ValueError("Invalid or corrupted password data")
+            raise ValueError("Invalid or corrupted password data. The stored password may have been tampered with or the encryption key was changed.")
         except (TypeError, ValueError) as e: # Catch potential decoding/type errors
-            raise RuntimeError(f"Error decrypting password: {str(e)}")
+            raise RuntimeError(f"Error decrypting password: {str(e)}. This may be due to corrupted data or an invalid encryption key.")
     
     def _initialize(self):
         """Initialize the data storage."""
@@ -409,6 +409,7 @@ class Storage:
             with open(self.accounts_file, "r") as f:
                 accounts_data = json.load(f)
                 accounts = []
+                decryption_failures = 0
                 for account_data in accounts_data:
                     # Decrypt password if it's encrypted
                     if "password" in account_data and account_data["password"].startswith("gAAAAAB"):
@@ -419,23 +420,28 @@ class Storage:
                             logger.warning(f"Warning: Could not decrypt password for account {account_data.get('name', 'unknown')}: {str(e)}")
                             # Mark the password as unavailable
                             account_data["password"] = "[encrypted - decryption failed]"
+                            decryption_failures += 1
                     accounts.append(Account.model_validate(account_data))
+                
+                if decryption_failures > 0:
+                    logger.warning(f"Failed to decrypt {decryption_failures} account passwords. This may be due to a changed encryption key or corrupted data.")
+                    
                 return accounts
         except FileNotFoundError:
             # If the file doesn't exist, return an empty list
             return []
         except json.JSONDecodeError as e:
             # If the file is not valid JSON, raise an error
-            raise ValueError(f"Invalid accounts file format: {str(e)}")
+            raise ValueError(f"Invalid accounts file format: {str(e)}. The file may be corrupted.")
         except (IOError, OSError, TypeError, ValueError, RuntimeError) as e: # Broader catch for file/data/decryption issues
             # For other errors, raise a generic error
-            raise RuntimeError(f"Error loading accounts: {str(e)}")
+            raise RuntimeError(f"Error loading accounts: {str(e)}. Please ensure you have proper permissions and the file is not corrupted.")
     
     def _save_accounts(self, accounts: List[Account]):
         """Save accounts to storage with encrypted passwords."""
         if not self.encryption_initialized:
              # Fail explicitly if encryption isn't ready
-             raise RuntimeError("Cannot save accounts: Encryption not initialized.")
+             raise RuntimeError("Cannot save accounts: Encryption not initialized. Please restart the application and ensure the master password is correct.")
              
         try:
             # Create a backup of the current file if it exists
@@ -458,7 +464,11 @@ class Storage:
                     except Exception as e:
                         # If encryption fails for a specific password, raise an error.
                         # Do not save plaintext passwords.
-                        raise RuntimeError(f"CRITICAL: Failed to encrypt password for account {data.get('name', 'unknown')}: {str(e)}. Aborting save.")
+                        error_msg = (f"CRITICAL: Failed to encrypt password for account {data.get('name', 'unknown')}: {str(e)}. "
+                                    f"Aborting save to prevent storing plaintext passwords. "
+                                    f"Please verify your encryption key is valid and hasn't been corrupted.")
+                        logger.critical(error_msg)
+                        raise RuntimeError(error_msg)
                 account_data.append(data)
             
             # Write to a temporary file first, then rename to avoid data loss on crash
@@ -1067,7 +1077,7 @@ class Storage:
             Dictionary with restore statistics
         """
         if not os.path.exists(backup_path):
-            raise FileNotFoundError(f"Backup file not found: {backup_path}")
+            raise FileNotFoundError(f"Backup file not found: {backup_path}. Please verify the path is correct.")
         
         try:
             # Create temporary directory for extraction
@@ -1094,12 +1104,15 @@ class Storage:
                             # Attempt to initialize/verify using the provided password
                             self._initialize_encryption(master_password)
                         except ValueError as e: # Catch invalid password during init
-                             raise ValueError("Invalid master password or corrupted backup") from e
+                             logger.error(f"Invalid master password or corrupted backup during restore: {e}")
+                             raise ValueError(f"Invalid master password or corrupted backup. Please make sure you've entered the correct master password that was used to encrypt this backup.") from e
                         except RuntimeError as e: # Catch other init errors
-                             raise RuntimeError(f"Failed to initialize encryption for restore: {e}") from e
+                             logger.error(f"Failed to initialize encryption for restore: {e}")
+                             raise RuntimeError(f"Failed to initialize encryption for restore: {e}. This may be due to a missing or corrupted key file.") from e
                     elif not self.encryption_initialized:
                         # If no password provided AND not initialized, it's an error
-                        raise ValueError("Master password required: Encryption not initialized and backup is encrypted.")
+                        logger.error("Master password required for encrypted backup but not provided")
+                        raise ValueError("Master password required: Encryption not initialized and backup is encrypted. Please provide the master password that was used to encrypt this backup.")
                     # If no password provided but encryption IS initialized, 
                     # proceed using the existing self.cipher. 
                      
@@ -1111,7 +1124,8 @@ class Storage:
                     try:
                         decrypted_data = self.cipher.decrypt(encrypted_data)
                     except InvalidToken:
-                        raise ValueError("Invalid master password or corrupted backup")
+                        logger.error("Invalid token error while decrypting backup")
+                        raise ValueError("Invalid master password or corrupted backup. Please ensure you have the correct master password for this backup file.")
                     
                     # Write decrypted data to temporary file
                     temp_zip = os.path.join(temp_dir, "backup.zip")
