@@ -10,7 +10,7 @@
 
 - [x] Fix the 33-byte key handling issue in src/data/storage.py
 - [x] Implement better error messages for encryption failures
-- [ ] Add additional unit tests for backup/restore functionality
+- [x] Add additional unit tests for backup/restore functionality
 - [ ] Create a GUI frontend using PySide6
 
 ## Security Enhancements

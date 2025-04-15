@@ -1,5 +1,16 @@
 # Release Notes
 
+## Version 1.2.7-beta (2025-04-15)
+
+### Testing Improvements
+
+- Added comprehensive unit test suite for backup/restore functionality
+- Expanded test coverage for error scenarios and edge cases
+- Created dedicated test file for backup functionality
+- Implemented tests for auto-backup and backup rotation features
+- Added validation tests for backup metadata integrity
+- Enhanced testing of encrypted backup security
+
 ## Version 1.2.6-beta (2025-04-15)
 
 ### User Experience Improvements
